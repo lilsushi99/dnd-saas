@@ -1,0 +1,6 @@
+{
+  "name": "Nexus ERP Foundation",
+  "description": "Enterprise ERP & CRM application shell and authentication foundation built with high-craft design standards.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
