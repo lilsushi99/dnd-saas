@@ -24,7 +24,6 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
     exportData,
   } = useOperations(branchFilter);
 
-  const [compareBranches, setCompareBranches] = useState(false);
   const [dbBranches, setDbBranches] = useState<Branch[]>([]);
 
   useEffect(() => {
@@ -35,7 +34,7 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
 
   const branches = [
     { id: 'all', label: 'All Branches (Global)' },
-    ...dbBranches.map((b) => ({ id: b.name, label: b.name })),
+    ...dbBranches.map((b) => ({ id: b.id, label: b.name })),
   ];
 
   return (
@@ -128,19 +127,6 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
             </div>
           )}
 
-          {/* Compare Branches Toggle */}
-          <button
-            onClick={() => setCompareBranches(!compareBranches)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer ${
-              compareBranches
-                ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-2xs'
-                : 'bg-gray-50 hover:bg-gray-100/80 border-gray-200 text-gray-700'
-            }`}
-          >
-            <i className="fa-solid fa-code-compare text-xs"></i>
-            <span>Compare Branches</span>
-            {compareBranches && <span className="w-2 h-2 rounded-full bg-blue-600"></span>}
-          </button>
         </div>
 
         {/* Right Export Actions */}

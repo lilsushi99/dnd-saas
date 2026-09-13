@@ -68,7 +68,6 @@ export class OperationsRepository {
       // Branch filter resolution
       if (filters?.branch && filters.branch !== 'all' && filters.branch.trim() !== '') {
         const b = filters.branch.trim();
-        // Lookup branch ID / Name in database to resolve aliases (e.g. BR-003 -> London Main)
         const branchRows = await executeQuery<any>(
           `SELECT id, name FROM branches WHERE id = ? OR name = ?`,
           [b, b]
@@ -76,11 +75,11 @@ export class OperationsRepository {
         if (branchRows && branchRows.length > 0) {
           const matchedName = branchRows[0].name;
           const matchedId = branchRows[0].id;
-          whereConditions.push(`(branch = ? OR branch = ? OR branch LIKE ?)`);
-          params.push(matchedId, matchedName, `%${matchedName}%`);
+          whereConditions.push(`(branch_id = ? OR branch = ? OR branch = ?)`);
+          params.push(matchedId, matchedId, matchedName);
         } else {
-          whereConditions.push(`(branch = ? OR branch LIKE ?)`);
-          params.push(b, `%${b}%`);
+          whereConditions.push(`(branch_id = ? OR branch = ?)`);
+          params.push(b, b);
         }
       }
 
@@ -581,22 +580,59 @@ export class OperationsRepository {
     endDate?: string;
   }): Promise<FacilityRecordSummary[]> {
     try {
-      const dbFacilities = await executeQuery<any>(`
-        SELECT f.id, f.name, f.branch_id, f.branch_name, f.capacity, f.default_price,
-               COALESCE(b.location, f.branch_name) as branch_location,
+      // Resolve branch filter if provided
+      let branchId: string | undefined = undefined;
+      let branchName: string | undefined = undefined;
+
+      if (filters?.branch && filters.branch !== 'all' && filters.branch.trim() !== '') {
+        const b = filters.branch.trim();
+        const branchRows = await executeQuery<any>(
+          `SELECT id, name FROM branches WHERE id = ? OR name = ?`,
+          [b, b]
+        );
+        if (branchRows && branchRows.length > 0) {
+          branchId = branchRows[0].id;
+          branchName = branchRows[0].name;
+        } else {
+          branchId = b;
+          branchName = b;
+        }
+      }
+
+      // 1. Query facilities belonging to the requested branch (or all active facilities)
+      let facSql = `
+        SELECT f.id as facility_id,
+               f.name as facility_name,
+               f.capacity,
+               f.branch_id,
+               f.branch_name,
+               COALESCE(b.location, f.branch_name, b.name) as branch_location,
                COALESCE(b.name, f.branch_name) as clean_branch_name
         FROM facilities f
         LEFT JOIN branches b ON f.branch_id = b.id OR f.branch_name = b.name
-        ORDER BY f.name ASC
-      `);
+        WHERE f.status = 'Active'
+      `;
+      const facParams: any[] = [];
 
-      let bookingSql = `SELECT id, date, branch, facility, days_count, amount, days_used, status FROM bookings WHERE 1=1`;
+      if (branchId || branchName) {
+        facSql += ` AND (f.branch_id = ? OR f.branch_name = ? OR b.id = ? OR b.name = ?)`;
+        facParams.push(branchId, branchName, branchId, branchName);
+      }
+
+      facSql += ` ORDER BY f.name ASC`;
+      const dbFacilities = await executeQuery<any>(facSql, facParams);
+
+      // 2. Query bookings matching the date and branch filters
+      let bookingSql = `
+        SELECT id, date, branch_id, branch, facility_id, facility, amount, status
+        FROM bookings
+        WHERE 1=1
+      `;
       const bookingParams: any[] = [];
 
-      if (filters?.branch && filters.branch !== 'all' && filters.branch !== 'Both Branches') {
-        const b = filters.branch.trim();
-        bookingSql += ` AND (branch = ? OR branch LIKE ?)`;
-        bookingParams.push(b, `%${b}%`);
+      if (branchId || branchName) {
+        bookingSql += ` AND (branch_id = ? OR branch = ?)`;
+        bookingParams.push(branchId, branchName);
       }
 
       if (filters?.dateFilter) {
@@ -630,76 +666,43 @@ export class OperationsRepository {
       }
 
       const matchingBookings = await executeQuery<any>(bookingSql, bookingParams);
-
-      const facilityMap = new Map<string, {
-        facilityName: string;
-        branchName: string;
-        capacity: number;
-        bookings: any[];
-      }>();
-
-      for (const fac of dbFacilities) {
-        const key = `${fac.name.toLowerCase()}___${(fac.clean_branch_name || '').toLowerCase()}`;
-        facilityMap.set(key, {
-          facilityName: fac.name,
-          branchName: fac.clean_branch_name || fac.branch_name || 'Main Branch',
-          capacity: Number(fac.capacity || 5),
-          bookings: [],
-        });
-      }
-
-      for (const bk of matchingBookings) {
-        const facName = bk.facility || 'General Facility';
-        const bName = bk.branch || 'Main Branch';
-        const key = `${facName.toLowerCase()}___${bName.toLowerCase()}`;
-
-        if (!facilityMap.has(key)) {
-          const existingKey = Array.from(facilityMap.keys()).find(k => k.startsWith(`${facName.toLowerCase()}___`));
-          if (existingKey) {
-            facilityMap.get(existingKey)!.bookings.push(bk);
-          } else {
-            facilityMap.set(key, {
-              facilityName: facName,
-              branchName: bName,
-              capacity: 5,
-              bookings: [bk],
-            });
-          }
-        } else {
-          facilityMap.get(key)!.bookings.push(bk);
-        }
-      }
-
-      let resultMapList = Array.from(facilityMap.values());
-
-      if (filters?.branch && filters.branch !== 'all' && filters.branch !== 'Both Branches') {
-        const targetBranch = filters.branch.toLowerCase();
-        resultMapList = resultMapList.filter(f =>
-          f.branchName.toLowerCase().includes(targetBranch) ||
-          targetBranch.includes(f.branchName.toLowerCase()) ||
-          f.bookings.length > 0
-        );
-      }
-
       const totalEnterpriseRev = matchingBookings.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
 
-      return resultMapList.map(item => {
-        const count = item.bookings.length;
-        const revenue = item.bookings.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
+      // Map facilities by facility_id and facility_name
+      return dbFacilities.map((fac) => {
+        const facId = fac.facility_id;
+        const facName = fac.facility_name;
+
+        // Match bookings belonging to this facility (by facility_id or facility name)
+        const facilityBookings = matchingBookings.filter((bk) => {
+          if (bk.facility_id && facId) {
+            if (String(bk.facility_id).trim().toLowerCase() === String(facId).trim().toLowerCase()) return true;
+          }
+          if (bk.facility && facName) {
+            if (String(bk.facility).trim().toLowerCase() === String(facName).trim().toLowerCase()) return true;
+          }
+          return false;
+        });
+
+        const count = facilityBookings.length;
+        const revenue = facilityBookings.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
         const avgSpend = count > 0 ? Math.round(revenue / count) : 0;
         const percentageOfTotal = totalEnterpriseRev > 0 ? Number(((revenue / totalEnterpriseRev) * 100).toFixed(1)) : 0;
 
-        const activeCount = item.bookings.filter((b: any) => b.status === 'Active' || b.status === 'Upcoming').length;
+        const activeCount = facilityBookings.filter((b: any) => b.status === 'Active' || b.status === 'Upcoming').length;
+        const capacity = Number(fac.capacity || 0);
         let occupancy = 0;
-        if (item.capacity > 0 && count > 0) {
-          occupancy = Math.min(100, Math.round((Math.max(activeCount, 1) / item.capacity) * 100));
+        if (capacity > 0) {
+          occupancy = Math.min(100, Math.round((activeCount / capacity) * 100));
         }
 
+        const locationDisplay = fac.branch_location || fac.clean_branch_name || fac.branch_name || '';
+
         return {
-          facility: item.facilityName,
+          facility: facName,
           bookings: count,
           revenue,
-          branch: item.branchName,
+          branch: locationDisplay,
           averageRevenue: avgSpend,
           percentageOfTotal,
           occupancy,
