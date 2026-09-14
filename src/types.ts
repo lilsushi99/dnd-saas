@@ -116,6 +116,7 @@ export interface SystemSettings {
   businessName?: string;
   directorName?: string;
   businessLogo?: string;
+  favicon?: string;
   currency?: string;
   timeZone?: string;
   address?: string;

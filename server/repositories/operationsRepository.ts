@@ -147,6 +147,13 @@ export class OperationsRepository {
 
   public async getSettings(): Promise<SystemSettings> {
     try {
+      // Auto migration safeguard for existing MySQL database tables missing the 'favicon' column
+      try {
+        await executeQuery(`ALTER TABLE business_settings ADD COLUMN favicon LONGTEXT NULL AFTER business_logo`);
+      } catch (e) {
+        // Column already exists or error ignored
+      }
+
       const rows = await executeQuery<any>(`SELECT * FROM business_settings WHERE id = 1`);
 
       if (rows && rows.length > 0) {
@@ -160,6 +167,7 @@ export class OperationsRepository {
           businessName: r.business_name || '',
           directorName: r.director_name || '',
           businessLogo: r.business_logo || '',
+          favicon: r.favicon || '',
           currency: r.currency || '',
           timeZone: r.timezone || '',
           address: r.address || '',
@@ -183,6 +191,7 @@ export class OperationsRepository {
       businessName: '',
       directorName: '',
       businessLogo: '',
+      favicon: '',
       currency: '',
       timeZone: '',
       address: '',
@@ -204,15 +213,17 @@ export class OperationsRepository {
     const existing = await executeQuery<any>(`SELECT id FROM business_settings WHERE id = 1`);
     const taxRateVal = newSettings.taxRate !== undefined && newSettings.taxRate !== null ? `${newSettings.taxRate}%` : '0%';
     const logoToSave = persistBase64Image(newSettings.businessLogo, 'logo');
+    const faviconToSave = persistBase64Image(newSettings.favicon, 'favicon');
 
     if (!existing || existing.length === 0) {
       await executeQuery(
-        `INSERT INTO business_settings (id, business_name, director_name, business_logo, currency, timezone, address, phone, email, website, language, tax_rate, invoice_prefix, booking_prefix, client_prefix, expense_prefix, category_prefix, branch_code)
-         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO business_settings (id, business_name, director_name, business_logo, favicon, currency, timezone, address, phone, email, website, language, tax_rate, invoice_prefix, booking_prefix, client_prefix, expense_prefix, category_prefix, branch_code)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           newSettings.businessName ?? '',
           newSettings.directorName ?? '',
           logoToSave,
+          faviconToSave,
           newSettings.currency ?? '',
           newSettings.timeZone ?? '',
           newSettings.address ?? '',
@@ -235,6 +246,7 @@ export class OperationsRepository {
          business_name = ?,
          director_name = ?,
          business_logo = ?,
+         favicon = ?,
          currency = ?,
          timezone = ?,
          address = ?,
@@ -254,6 +266,7 @@ export class OperationsRepository {
           newSettings.businessName ?? '',
           newSettings.directorName ?? '',
           logoToSave,
+          faviconToSave,
           newSettings.currency ?? '',
           newSettings.timeZone ?? '',
           newSettings.address ?? '',

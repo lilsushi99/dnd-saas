@@ -25,6 +25,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
   const [businessName, setBusinessName] = useState('');
   const [directorName, setDirectorName] = useState('');
   const [businessLogo, setBusinessLogo] = useState('');
+  const [favicon, setFavicon] = useState('');
   const [currency, setCurrency] = useState('');
   const [timeZone, setTimeZone] = useState('');
   const [address, setAddress] = useState('');
@@ -65,6 +66,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
   // Modal State
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
   const [isUploadingProfilePhoto, setIsUploadingProfilePhoto] = useState(false);
 
   const handleLogoUpload = async (file: File) => {
@@ -84,6 +86,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
       showToast('Notice', 'Image loaded locally. Click Save Changes to commit.', 'info');
     } finally {
       setIsUploadingLogo(false);
+    }
+  };
+
+  const handleFaviconUpload = async (file: File) => {
+    setIsUploadingFavicon(true);
+    try {
+      showToast('Uploading Favicon', 'Saving favicon to server...', 'info');
+      const result = await AdminApiService.uploadFile(file, 'logo');
+      setFavicon(result.url);
+      showToast('Favicon Uploaded', 'Favicon uploaded successfully.', 'success');
+    } catch (err: any) {
+      console.error('Favicon upload error:', err);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (reader.result) setFavicon(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      showToast('Notice', 'Favicon image loaded locally. Click Save Changes to commit.', 'info');
+    } finally {
+      setIsUploadingFavicon(false);
     }
   };
 
@@ -115,6 +137,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
       setBusinessName(s.businessName || '');
       setDirectorName(s.directorName || '');
       setBusinessLogo(s.businessLogo || '');
+      setFavicon(s.favicon || '');
       setCurrency(s.currency || '');
       setTimeZone(s.timeZone || '');
       setAddress(s.address || '');
@@ -200,6 +223,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
         businessName: businessName.trim(),
         directorName: directorName.trim(),
         businessLogo: businessLogo.trim(),
+        favicon: favicon.trim(),
         currency: currency.trim(),
         timeZone: timeZone.trim(),
         address: address.trim(),
@@ -220,6 +244,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
       setBusinessName(updated.businessName || '');
       setDirectorName(updated.directorName || '');
       setBusinessLogo(updated.businessLogo || '');
+      setFavicon(updated.favicon || '');
       setCurrency(updated.currency || '');
       setTimeZone(updated.timeZone || '');
       setAddress(updated.address || '');
@@ -461,6 +486,56 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleLogoUpload(file);
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Favicon Icon</label>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center relative group p-1">
+                  {favicon ? (
+                    <img src={favicon} alt="Favicon" className="w-full h-full object-contain" />
+                  ) : (
+                    <i className="fa-solid fa-[#111827] fa-icons text-gray-400 text-sm"></i>
+                  )}
+                  <label className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-xs">
+                    {isUploadingFavicon ? (
+                      <i className="fa-solid fa-spinner fa-spin text-white"></i>
+                    ) : (
+                      <i className="fa-solid fa-camera"></i>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/x-icon,image/png,image/svg+xml,image/jpeg,image/webp"
+                      disabled={isUploadingFavicon}
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFaviconUpload(file);
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className={`px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-semibold text-gray-700 cursor-pointer inline-flex items-center gap-1.5 transition-colors shadow-2xs ${isUploadingFavicon ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {isUploadingFavicon ? (
+                      <i className="fa-solid fa-spinner fa-spin text-blue-600"></i>
+                    ) : (
+                      <i className="fa-solid fa-upload text-blue-600"></i>
+                    )}
+                    {isUploadingFavicon ? 'Uploading...' : 'Upload Favicon'}
+                    <input
+                      type="file"
+                      accept="image/x-icon,image/png,image/svg+xml,image/jpeg,image/webp"
+                      disabled={isUploadingFavicon}
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFaviconUpload(file);
                       }}
                     />
                   </label>

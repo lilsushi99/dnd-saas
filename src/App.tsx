@@ -4,6 +4,7 @@ import { LoginScreen } from './components/auth/LoginScreen';
 import { SignUpScreen } from './components/auth/SignUpScreen';
 import { DashboardShell } from './components/layout/DashboardShell';
 import { AuthService } from './services/authService';
+import { OperationsApiService } from './services/operationsService';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<AuthView>('login');
@@ -37,6 +38,23 @@ export default function App() {
     };
 
     checkSession();
+  }, []);
+
+  // Dynamically apply saved favicon from database settings
+  useEffect(() => {
+    OperationsApiService.fetchSystemSettings()
+      .then((s) => {
+        if (s.favicon) {
+          let link = document.querySelector<HTMLLinkElement>("link[rel*='icon']");
+          if (!link) {
+            link = document.createElement('link');
+            link.rel = 'shortcut icon';
+            document.head.appendChild(link);
+          }
+          link.href = s.favicon;
+        }
+      })
+      .catch((err) => console.error('Failed to update favicon:', err));
   }, []);
 
   const handleLoginSuccess = (authenticatedUser: User) => {
