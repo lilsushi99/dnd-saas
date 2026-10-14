@@ -4,6 +4,7 @@ import { LoginScreen } from './components/auth/LoginScreen';
 import { SignUpScreen } from './components/auth/SignUpScreen';
 import { DashboardShell } from './components/layout/DashboardShell';
 import { AuthService } from './services/authService';
+import { AUTH_EXPIRED_EVENT } from './services/http';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<AuthView>('login');
@@ -37,6 +38,16 @@ export default function App() {
     };
 
     checkSession();
+  }, []);
+
+  // Any API call that comes back 401 (expired/revoked session) returns the user to the login screen.
+  useEffect(() => {
+    const onExpired = () => {
+      setCurrentView('login');
+      setActiveNavItem('dashboard');
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
   }, []);
 
   const handleLoginSuccess = (authenticatedUser: User) => {

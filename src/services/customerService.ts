@@ -1,13 +1,9 @@
+import { apiRequest } from './http';
 import { Customer, ActiveSubscription, CustomerFilters, SubscriptionFilters } from '../types';
 
 export class CustomerApiService {
   private static async request<T>(url: string, options?: RequestInit): Promise<T> {
-    const res = await fetch(url, options);
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'API Request failed');
-    }
-    return data;
+    return apiRequest<T>(url, options);
   }
 
   public static async fetchCustomers(filters?: CustomerFilters): Promise<{

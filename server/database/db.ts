@@ -17,17 +17,11 @@ const dbConfig = {
 
 let pool: mysql.Pool | null = null;
 
+export const schemaStatus: { ok: boolean | null; error: string | null } = { ok: null, error: null };
+
 export function getPool(): mysql.Pool {
   if (!pool) {
-    console.log('--- MYSQL POOL CREATION DBCONFIG ---');
-    console.log({
-      host: dbConfig.host,
-      port: dbConfig.port,
-      user: dbConfig.user,
-      database: dbConfig.database,
-      password: dbConfig.password ? 'PASSWORD EXISTS' : 'NO PASSWORD',
-    });
-    console.log('------------------------------------');
+    console.log(`🔌 [MySQL] Creating pool for ${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
     pool = mysql.createPool(dbConfig);
   }
   return pool;
@@ -171,12 +165,25 @@ export async function ensureDatabaseSchema(): Promise<void> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      // 4. Seed the default role matrix. INSERT IGNORE never overwrites a customised role.
+      const { DEFAULT_ROLE_PERMISSIONS } = await import('../middleware/auth');
+      for (const [role, perms] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+        await conn.query(
+          `INSERT IGNORE INTO user_roles_permissions (role, permissions) VALUES (?, ?)`,
+          [role, JSON.stringify(perms)]
+        );
+      }
+
+      schemaStatus.ok = true;
+      schemaStatus.error = null;
       console.log('✅ [Schema Verification] Verified all database tables and settings columns');
     } finally {
       conn.release();
     }
   } catch (err: any) {
-    console.error('⚠️ [Schema Verification Warning]:', err.message);
+    schemaStatus.ok = false;
+    schemaStatus.error = err.message;
+    console.error('❌ [Schema Verification FAILED]:', err.message);
   }
 }
 
@@ -194,12 +201,6 @@ export async function checkDbConnection(): Promise<boolean> {
     return true;
   } catch (err: any) {
     console.error(`❌ [MySQL Connection Error] Unable to connect to ${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}:`, err.message);
-    console.error(`FULL CONFIG USED (Excluding Password):`, {
-      host: dbConfig.host,
-      port: dbConfig.port,
-      user: dbConfig.user,
-      database: dbConfig.database,
-    });
     return false;
   }
 }
@@ -235,7 +236,7 @@ export async function executeTransaction<T>(
 }
 
 export function isDbActive(): boolean {
-  return true;
+  return pool !== null;
 }
 
 export default {

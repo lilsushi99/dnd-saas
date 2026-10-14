@@ -1,13 +1,9 @@
+import { apiRequest } from './http';
 import { FinanceReportFilters, FinanceAnalyticsSummary } from '../types';
 
 export class FinanceApiService {
   private static async request<T>(url: string, options?: RequestInit): Promise<T> {
-    const res = await fetch(url, options);
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'API Request failed');
-    }
-    return data;
+    return apiRequest<T>(url, options);
   }
 
   public static async fetchAnalytics(filters?: FinanceReportFilters): Promise<FinanceAnalyticsSummary> {

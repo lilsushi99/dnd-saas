@@ -99,7 +99,7 @@ export interface Booking {
   paymentMethod: 'Credit Card' | 'Wire Transfer' | 'Cash' | 'Corporate Billing';
   daysUsed: number;
   daysLeft: number;
-  status: 'Active' | 'Expired' | 'Upcoming';
+  status: 'Active' | 'Expired' | 'Upcoming' | 'Cancelled';
   createdAt?: string;
 }
 

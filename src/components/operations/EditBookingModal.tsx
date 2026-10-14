@@ -27,7 +27,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     paymentMethod: 'Wire Transfer' as 'Credit Card' | 'Wire Transfer' | 'Cash' | 'Corporate Billing',
     daysCount: 1,
     daysUsed: 1,
-    status: 'Active' as 'Active' | 'Expired' | 'Upcoming',
+    status: 'Active' as 'Active' | 'Expired' | 'Upcoming' | 'Cancelled',
   });
 
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -273,6 +273,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
                   <option value="Active">Active</option>
                   <option value="Upcoming">Upcoming</option>
                   <option value="Expired">Expired</option>
+                  <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
 

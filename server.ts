@@ -1,46 +1,19 @@
 import express from 'express';
 import path from 'path';
 import config from './server/config/config';
-import authRouter from './server/routes/authRoutes';
-import operationsRouter from './server/routes/operationsRoutes';
-import customerRouter from './server/routes/customerRoutes';
-import expenseRouter from './server/routes/expenseRoutes';
-import financeRouter from './server/routes/financeRoutes';
-import adminRouter from './server/routes/adminRoutes';
-import aiRouter from './server/routes/aiRoutes';
-
+import { createApiApp } from './server/app';
 import { checkDbConnection } from './server/database/db';
 
 async function startServer() {
-  const app = express();
+  const app = createApiApp();
   const PORT = config.port || 3000;
-
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Serve static uploaded files
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-  // API Routes
-  app.use('/api/auth', authRouter);
-  app.use('/api/operations', operationsRouter);
-  app.use('/api/customers', customerRouter);
-  app.use('/api/expenses', expenseRouter);
-  app.use('/api/finance', financeRouter);
-  app.use('/api/admin', adminRouter);
-  app.use('/api/ai', aiRouter);
-
-  app.get('/api/health', async (req, res) => {
-    const dbConnected = await checkDbConnection();
-    res.json({
-      status: 'ok',
-      appName: config.appName,
-      environment: config.env,
-      database: dbConnected ? 'connected' : 'disconnected_or_not_configured',
-      host: config.db.host || 'localhost',
-      timestamp: new Date().toISOString(),
-    });
-  });
+  // Verify the database and run safe, additive schema checks at boot (not only when /api/health is hit).
+  const dbOk = await checkDbConnection();
+  if (!dbOk) console.error('❌ [Server] Database unreachable at startup. API requests will fail with 500 until it is reachable.');
 
   // Vite middleware setup (Only loaded in development mode)
   if (config.env !== 'production' && process.env.NODE_ENV !== 'production') {
@@ -67,4 +40,5 @@ async function startServer() {
 
 startServer().catch((err) => {
   console.error('❌ Critical Server Initialization Error:', err);
+  process.exit(1);
 });

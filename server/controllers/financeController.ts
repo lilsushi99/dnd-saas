@@ -18,6 +18,10 @@ export class FinanceController {
 
       return res.json({ success: true, analytics });
     } catch (err: any) {
+      // Invalid user input (unknown branch, malformed custom range) is a 400; anything else is a real server failure.
+      if (/^(Unknown branch|A valid custom|Custom range)/.test(err?.message || '')) {
+        return res.status(400).json({ success: false, error: err.message, message: err.message });
+      }
       return res.status(500).json({ success: false, error: err.message });
     }
   }

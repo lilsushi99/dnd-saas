@@ -1,13 +1,9 @@
+import { apiRequest } from './http';
 import { Expense, ExpenseFilters, ExpenseSummaryMetrics, ExpenseCategory } from '../types';
 
 export class ExpenseApiService {
   private static async request<T>(url: string, options?: RequestInit): Promise<T> {
-    const res = await fetch(url, options);
-    const data = await res.json();
-    if (!res.ok || (!data.success && data.success !== undefined)) {
-      throw new Error(data.error || 'API Request failed');
-    }
-    return data;
+    return apiRequest<T>(url, options);
   }
 
   public static async fetchExpenses(filters?: ExpenseFilters): Promise<{

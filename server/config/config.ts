@@ -1,28 +1,23 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 
-// Verify working directory and load root .env using absolute path with override enabled
+// Verify working directory and load root .env using absolute path (real environment variables take precedence over .env)
 const cwd = process.cwd();
 const envPath = path.resolve(cwd, '.env');
 
 if (fs.existsSync(envPath)) {
-  const result = dotenv.config({ path: envPath, override: true });
+  const result = dotenv.config({ path: envPath, override: false });
   if (result.error) {
     console.error(`❌ Error reading .env file at ${envPath}:`, result.error);
   } else {
-    console.log(`✅ [Config] Successfully loaded .env from: ${envPath} (Working directory: ${cwd})`);
+    console.log('✅ [Config] Loaded .env file');
   }
 } else {
   console.warn(`⚠️ [Config Warning] .env file not found at ${envPath}`);
 }
 
-console.log('--- ENV VERIFICATION IMMEDIATELY AFTER DOTENV ---');
-console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_NAME:', process.env.DB_NAME);
-console.log('DB_USER:', process.env.DB_USER);
-console.log('DB_PASSWORD:', process.env.DB_PASSWORD ? 'PASSWORD EXISTS' : 'NO PASSWORD');
-console.log('--------------------------------------------------');
 
 export interface AppConfig {
   env: 'development' | 'production' | 'test' | string;
@@ -79,9 +74,24 @@ export function validateAndLoadConfig(): AppConfig {
   const dbUser = process.env.DB_USER || 'root';
   const dbPass = process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : '';
 
-  const jwtSecret = process.env.JWT_SECRET || 'nexus_erp_enterprise_jwt_secret_key_2026';
+  const KNOWN_INSECURE_SECRETS = [
+    'nexus_erp_enterprise_jwt_secret_key_2026',
+    'change_this_jwt_secret_in_production',
+  ];
+  let jwtSecret = process.env.JWT_SECRET || '';
+  if (!jwtSecret || KNOWN_INSECURE_SECRETS.includes(jwtSecret)) {
+    if (env === 'production') {
+      // Fail closed: a published/default secret lets anyone forge admin tokens.
+      throw new Error(
+        'JWT_SECRET is missing or is a known default value. Set a long random JWT_SECRET before starting in production.'
+      );
+    }
+    // Development/test: ephemeral per-process secret (sessions reset on restart).
+    jwtSecret = crypto.randomBytes(48).toString('hex');
+    console.warn('⚠️ [Config] JWT_SECRET not set; using an ephemeral development secret.');
+  }
   const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '24h';
-  const sessionSecret = process.env.SESSION_SECRET || 'nexus_erp_enterprise_session_secret_2026';
+  const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
   const bcryptRounds = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
 
   const uploadDir = process.env.UPLOAD_DIRECTORY || path.join(process.cwd(), 'uploads');
@@ -91,7 +101,7 @@ export function validateAndLoadConfig(): AppConfig {
     .map((t) => t.trim());
 
   const logLevel = process.env.LOG_LEVEL || 'info';
-  const corsOrigin = process.env.CORS_ORIGIN || '*';
+  const corsOrigin = process.env.CORS_ORIGIN || '';
   const timezone = process.env.TIMEZONE || 'UTC+01:00';
   const geminiApiKey = process.env.GEMINI_API_KEY || '';
   const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';

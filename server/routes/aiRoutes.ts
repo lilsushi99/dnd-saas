@@ -3,7 +3,11 @@ import { GoogleGenAI } from '@google/genai';
 import config from '../config/config';
 import { executeQuery } from '../database/db';
 
+import { authenticate, requirePermission } from '../middleware/auth';
+
 const router = Router();
+// The assistant reads business-wide figures, so it requires a signed-in user with dashboard access.
+router.use(authenticate, requirePermission('dashboard'));
 
 async function ensureAiTableExists() {
   try {
