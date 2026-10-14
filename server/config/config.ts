@@ -14,7 +14,13 @@ if (fs.existsSync(envPath)) {
     console.log(`✅ [Config] Successfully loaded .env from: ${envPath} (Working directory: ${cwd})`);
   }
 } else {
-  console.warn(`⚠️ [Config Warning] .env file not found at ${envPath}`);
+  const examplePath = path.resolve(cwd, '.env.example');
+  if (fs.existsSync(examplePath)) {
+    dotenv.config({ path: examplePath, override: true });
+    console.log(`✅ [Config] Loaded fallback environment from: ${examplePath}`);
+  } else {
+    console.warn(`⚠️ [Config Warning] .env file not found at ${envPath}`);
+  }
 }
 
 console.log('--- ENV VERIFICATION IMMEDIATELY AFTER DOTENV ---');
@@ -64,7 +70,8 @@ export function validateAndLoadConfig(): AppConfig {
   const env = isProd ? 'production' : (process.env.NODE_ENV || 'development');
   process.env.NODE_ENV = env;
 
-  const port = parseInt(process.env.PORT || '3000', 10);
+  // AI Studio requires port 3000 for preview proxy
+  const port = 3000;
   const appName = process.env.APP_NAME || 'Nexus ERP Enterprise';
   const appUrl = process.env.APP_URL || `http://localhost:${port}`;
   const clientUrl = process.env.CLIENT_URL || `http://localhost:${port}`;

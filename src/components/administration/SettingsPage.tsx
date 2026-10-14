@@ -4,6 +4,14 @@ import { useToast } from '../../context/ToastContext';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { OperationsApiService } from '../../services/operationsService';
 import { AdminApiService } from '../../services/adminService';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
+
+const roleAssignmentOptions: SelectOption[] = [
+  { id: 'Director', label: 'Director' },
+  { id: 'Manager', label: 'Manager' },
+  { id: 'Receptionist', label: 'Receptionist' },
+  { id: 'Accountant', label: 'Accountant' },
+];
 
 interface SettingsPageProps {
   user: User;
@@ -345,8 +353,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 border border-gray-200/80 rounded-2xl shadow-2xs">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 font-heading flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
               <i className="fa-solid fa-gear text-sm"></i>
             </span>
             System Settings & Security Controls
@@ -367,9 +375,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 py-4 px-3 sm:px-5 border-b-2 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+            className={`flex items-center gap-2 py-4 px-3 sm:px-5 border-b-2 text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
               activeTab === tab.id
-                ? 'border-blue-600 text-blue-700 font-bold'
+                ? 'border-blue-600 text-blue-700 font-semibold'
                 : 'border-transparent text-gray-500 hover:text-gray-900'
             }`}
           >
@@ -384,7 +392,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
         <form onSubmit={handleSaveBusinessSettings} className="bg-white border border-gray-200/80 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-6">
           <div className="border-b border-gray-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h2 className="text-base font-bold text-gray-900 font-heading">Business Configuration</h2>
+              <h2 className="text-base font-semibold text-gray-900">Business Configuration</h2>
               <p className="text-xs text-gray-500 mt-0.5">Define corporate entity info, currency, time zone, and localized defaults</p>
             </div>
             {isLoadingBusiness && (
@@ -562,7 +570,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
           {/* Dedicated ID Prefix Configuration */}
           <div className="pt-6 border-t border-gray-100 space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-gray-900 font-heading">Sequential ID Prefix Configuration</h3>
+              <h3 className="text-sm font-semibold text-gray-900">Sequential ID Prefix Configuration</h3>
               <p className="text-xs text-gray-500 mt-0.5">
                 Prefixes and identifiers stored in MySQL and used for auto-generating system record IDs
               </p>
@@ -576,7 +584,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                   value={bookingPrefix}
                   onChange={(e) => setBookingPrefix(e.target.value.toUpperCase())}
                   placeholder="BK"
-                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-bold text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-medium text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
                 />
               </div>
 
@@ -587,7 +595,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                   value={invoicePrefix}
                   onChange={(e) => setInvoicePrefix(e.target.value.toUpperCase())}
                   placeholder="INV"
-                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-bold text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-medium text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
                 />
               </div>
 
@@ -598,7 +606,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                   value={clientPrefix}
                   onChange={(e) => setClientPrefix(e.target.value.toUpperCase())}
                   placeholder="CL"
-                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-bold text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-medium text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
                 />
               </div>
 
@@ -609,7 +617,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                   value={expensePrefix}
                   onChange={(e) => setExpensePrefix(e.target.value.toUpperCase())}
                   placeholder="EXP"
-                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-bold text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-medium text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
                 />
               </div>
 
@@ -620,7 +628,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                   value={categoryPrefix}
                   onChange={(e) => setCategoryPrefix(e.target.value.toUpperCase())}
                   placeholder="EC"
-                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-bold text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-medium text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
                 />
               </div>
 
@@ -631,7 +639,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                   value={branchCode}
                   onChange={(e) => setBranchCode(e.target.value.toUpperCase())}
                   placeholder="IPHIN"
-                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-bold text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-medium text-gray-900 focus:outline-none focus:bg-white focus:border-blue-500 transition-all font-sans"
                 />
               </div>
             </div>
@@ -671,7 +679,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
         <form onSubmit={handleSaveProfileSettings} className="bg-white border border-gray-200/80 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-6">
           <div className="border-b border-gray-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h2 className="text-base font-bold text-gray-900 font-heading">User Profile Information</h2>
+              <h2 className="text-base font-semibold text-gray-900">User Profile Information</h2>
               <p className="text-xs text-gray-500 mt-0.5">Manage personal credentials and profile details stored in MySQL</p>
             </div>
             {isLoadingProfile && (
@@ -684,7 +692,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
 
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
             <div className="relative group shrink-0">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold text-xl flex items-center justify-center font-heading shadow-md overflow-hidden">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-semibold text-xl flex items-center justify-center shadow-md overflow-hidden">
                 {profilePhoto ? (
                   <img src={profilePhoto} alt="Profile Photo" className="w-full h-full object-cover" />
                 ) : (
@@ -710,10 +718,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
               </label>
             </div>
             <div className="flex-1 text-center sm:text-left">
-              <h3 className="text-base font-bold text-gray-900 font-heading">{profileName || 'No Name Set'}</h3>
+              <h3 className="text-base font-semibold text-gray-900">{profileName || 'No Name Set'}</h3>
               <p className="text-xs text-gray-500">{profileEmail || user.email}</p>
               <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <label className={`px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 cursor-pointer inline-flex items-center gap-1.5 transition-colors shadow-2xs ${isUploadingProfilePhoto ? 'opacity-50 pointer-events-none' : ''}`}>
+                <label className={`px-2.5 py-1 rounded-lg text-[10px] font-medium bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 cursor-pointer inline-flex items-center gap-1.5 transition-colors shadow-2xs ${isUploadingProfilePhoto ? 'opacity-50 pointer-events-none' : ''}`}>
                   {isUploadingProfilePhoto ? (
                     <i className="fa-solid fa-spinner fa-spin text-blue-600"></i>
                   ) : (
@@ -731,10 +739,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                     }}
                   />
                 </label>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-50 text-purple-700">
                   {user.role} Access
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700">
                   Active Session
                 </span>
               </div>
@@ -832,13 +840,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
         <div className="bg-white border border-gray-200/80 rounded-2xl p-4 sm:p-6 shadow-2xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
             <div>
-              <h2 className="text-base font-bold text-gray-900 font-heading">Role Management & Permissions</h2>
+              <h2 className="text-base font-semibold text-gray-900">Role Management & Permissions</h2>
               <p className="text-xs text-gray-500 mt-0.5">Toggle granular module permissions per organizational role and assign roles to users in MySQL</p>
             </div>
             <button
               onClick={handleSaveRoleMatrix}
               disabled={isSavingRoles}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-medium rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
             >
               {isSavingRoles ? (
                 <>
@@ -856,17 +864,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
 
           {/* Section 1: Permissions Matrix */}
           <div className="space-y-6">
-            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Module Permissions Matrix</h3>
+            <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Module Permissions Matrix</h3>
             {[
-              { role: 'Director', desc: 'Full Access across all system modules, finances, branches, and security settings.', badgeStyle: 'bg-purple-50 text-purple-700 border-purple-200' },
-              { role: 'Manager', desc: 'Access to Dashboard, CRM, Operations, Reports, and Finance modules.', badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200' },
-              { role: 'Receptionist', desc: 'Front-desk access restricted to Bookings, CRM, and Daily Logger operations.', badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200' },
-              { role: 'Accountant', desc: 'Finance access restricted to General Ledger, Expenses, and Financial Reports.', badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+              { role: 'Director', desc: 'Full Access across all system modules, finances, branches, and security settings.', badgeStyle: 'bg-purple-50 text-purple-700' },
+              { role: 'Manager', desc: 'Access to Dashboard, CRM, Operations, Reports, and Finance modules.', badgeStyle: 'bg-blue-50 text-blue-700' },
+              { role: 'Receptionist', desc: 'Front-desk access restricted to Bookings, CRM, and Daily Logger operations.', badgeStyle: 'bg-amber-50 text-amber-700' },
+              { role: 'Accountant', desc: 'Finance access restricted to General Ledger, Expenses, and Financial Reports.', badgeStyle: 'bg-emerald-50 text-emerald-700' },
             ].map(({ role, desc, badgeStyle }) => (
               <div key={role} className="border border-gray-200/80 rounded-2xl p-4 sm:p-5 space-y-4 bg-gray-50/40">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1 text-xs font-bold rounded-lg border uppercase tracking-wider ${badgeStyle}`}>
+                    <span className={`px-3 py-1 text-xs font-medium rounded-lg uppercase tracking-wider ${badgeStyle}`}>
                       {role}
                     </span>
                     <p className="text-xs text-gray-500 font-sans">{desc}</p>
@@ -875,7 +883,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-gray-200/60">
                   {[
-                    { key: 'dashboard', label: 'Executive Dashboard' },
+                    { key: 'dashboard', label: 'Dashboard' },
                     { key: 'crm', label: 'CRM & Accounts' },
                     { key: 'bookings', label: 'Facility Bookings' },
                     { key: 'dailyLogger', label: 'Daily Logger' },
@@ -895,7 +903,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                             : 'bg-gray-100/60 border-gray-200/80 opacity-60'
                         }`}
                       >
-                        <span className="text-xs font-semibold text-gray-800">{label}</span>
+                        <span className="text-xs font-medium text-gray-800">{label}</span>
                         <div
                           className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${
                             isChecked ? 'bg-blue-600' : 'bg-gray-300'
@@ -918,13 +926,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
           {/* Section 2: User Role Assignments */}
           <div className="pt-6 border-t border-gray-100 space-y-4">
             <div>
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">User Role Assignments</h3>
+              <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">User Role Assignments</h3>
               <p className="text-xs text-gray-500 mt-0.5">Assign and manage system security access roles directly for registered system accounts in MySQL</p>
             </div>
 
             <div className="overflow-x-auto border border-gray-200 rounded-xl">
               <table className="w-full text-left text-xs">
-                <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold uppercase tracking-wider text-[11px]">
+                <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-medium uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="py-3 px-4">User Name</th>
                     <th className="py-3 px-4">Email</th>
@@ -942,24 +950,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, onLogout }) =>
                   ) : (
                     usersList.map((u) => (
                       <tr key={u.id} className="hover:bg-gray-50/60 transition-colors">
-                        <td className="py-3 px-4 font-semibold text-gray-900">{u.name}</td>
+                        <td className="py-3 px-4 font-medium text-gray-900">{u.name}</td>
                         <td className="py-3 px-4 text-gray-600">{u.email}</td>
                         <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700">
                             {u.role}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
-                          <select
+                        <td className="py-3 px-4 w-44">
+                          <CustomSelect
+                            options={roleAssignmentOptions}
                             value={u.role}
-                            onChange={(e) => handleUserRoleChange(u.id, e.target.value as AdminUser['role'])}
-                            className="px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-900 focus:outline-none focus:border-blue-500 cursor-pointer"
-                          >
-                            <option value="Director">Director</option>
-                            <option value="Manager">Manager</option>
-                            <option value="Receptionist">Receptionist</option>
-                            <option value="Accountant">Accountant</option>
-                          </select>
+                            onChange={(val) => handleUserRoleChange(u.id, val as AdminUser['role'])}
+                            className="!py-1.5 !px-3"
+                          />
                         </td>
                       </tr>
                     ))

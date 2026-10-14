@@ -59,7 +59,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
         {/* Hero Copy & Enterprise Image */}
         <div className="relative z-10 my-auto max-w-lg">
-          <h1 className="font-heading text-4xl font-bold tracking-tight text-gray-900 leading-tight mb-4">
+          <h1 className="text-4xl font-semibold tracking-tight text-gray-900 leading-tight mb-4">
             Unified Enterprise Governance and Resource Management
           </h1>
 
@@ -102,7 +102,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
           {/* Title Header */}
           <div className="mb-8">
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight">
               Sign in to Nexus ERP
             </h2>
             <p className="text-sm text-gray-600 mt-2">

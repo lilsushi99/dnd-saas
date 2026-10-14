@@ -22,30 +22,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [now, setNow] = useState<Date>(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const timeString = now.toLocaleTimeString('en-US', {
-    timeZone: 'Africa/Lagos',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-  });
-
-  const dateString = now.toLocaleDateString('en-US', {
-    timeZone: 'Africa/Lagos',
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 
   interface NotificationItem {
     id: string;
@@ -77,42 +53,17 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           <i className="fa-solid fa-bars text-lg"></i>
         </button>
 
-        <div>
-          <h1 className="font-heading text-lg sm:text-xl font-bold text-gray-900 tracking-tight">
-            {pageTitle}
-          </h1>
-          <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500 font-sans mt-0.5">
-            <span className="font-semibold text-gray-800 font-mono flex items-center gap-1">
-              <i className="fa-regular fa-clock text-blue-600 text-[11px]"></i>
-              {timeString}
-            </span>
-            <span className="text-gray-300">•</span>
-            <span className="text-gray-600 font-medium flex items-center gap-1">
-              <i className="fa-regular fa-calendar-days text-gray-400 text-[11px]"></i>
-              {dateString}
-            </span>
-          </div>
-        </div>
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900 tracking-tight leading-none">
+          {pageTitle}
+        </h1>
       </div>
 
-      {/* Right Area: AI Assistant, Search, Notifications & User Avatar */}
+      {/* Right Area: Search, Notifications & User Avatar */}
       <div className="flex items-center gap-2.5 sm:gap-3.5">
-        {/* AI Assistant Drawer Trigger Button (Reduced width utility button) */}
-        {onOpenAIAssistant && (
-          <button
-            onClick={onOpenAIAssistant}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer"
-            title="Open AI Business Assistant"
-          >
-            <i className="fa-solid fa-user-tie text-xs text-amber-400"></i>
-            <span className="hidden md:inline font-sans text-xs">Assistant</span>
-          </button>
-        )}
-
         {/* Global Search Button */}
         <button
           onClick={onOpenSearch}
-          className="flex items-center gap-3 px-3.5 py-2 bg-gray-50 hover:bg-gray-100/80 border border-gray-200/80 rounded-xl text-xs text-gray-500 transition-all cursor-pointer w-32 sm:w-56 group"
+          className="flex items-center gap-3 px-3.5 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs text-gray-500 transition-all cursor-pointer w-32 sm:w-56 group"
         >
           <i className="fa-solid fa-magnifying-glass text-gray-400 group-hover:text-blue-600 transition-colors"></i>
           <span className="truncate flex-1 text-left font-sans">
@@ -143,21 +94,21 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
           {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden font-sans animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg z-50 overflow-hidden font-sans animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-heading font-bold text-sm text-gray-900">
+                  <h3 className="font-heading font-semibold text-sm text-gray-900">
                     Notifications
                   </h3>
                   {unreadCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-medium">
                       {unreadCount} New
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setShowNotifications(false)}
-                  className="text-xs text-gray-400 hover:text-gray-600"
+                  className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
                 >
                   <i className="fa-solid fa-xmark"></i>
                 </button>
@@ -236,7 +187,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             }}
             className="flex items-center gap-3 p-1 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group"
           >
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-heading font-bold flex items-center justify-center text-xs shadow-xs group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-semibold flex items-center justify-center text-xs shadow-xs group-hover:scale-105 transition-transform">
               {user.name
                 .split(' ')
                 .map((n) => n[0])
@@ -244,10 +195,10 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                 .substring(0, 2)}
             </div>
             <div className="hidden md:block text-left">
-              <div className="text-xs font-bold text-gray-900 leading-none font-heading">
+              <div className="text-xs font-semibold text-gray-900 leading-none">
                 {user.name}
               </div>
-              <div className="text-[10px] text-gray-500 mt-0.5 font-sans">
+              <div className="text-[10px] text-gray-500 mt-0.5">
                 {user.role}
               </div>
             </div>
@@ -256,11 +207,11 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
           {/* User Menu Dropdown */}
           {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden font-sans animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg z-50 overflow-hidden font-sans animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="p-3.5 border-b border-gray-100 bg-gray-50/50">
-                <p className="text-xs font-bold text-gray-900">{user.name}</p>
+                <p className="text-xs font-semibold text-gray-900">{user.name}</p>
                 <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
-                <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-semibold border border-blue-100">
+                <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-medium">
                   <i className="fa-solid fa-building text-[9px]"></i>
                   {user.organization}
                 </div>

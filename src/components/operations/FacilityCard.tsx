@@ -22,14 +22,14 @@ export const FacilityCard: React.FC<FacilityCardProps> = ({ record }) => {
       {/* Top Header: Name & Icon */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-0.5">
+          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider block mb-0.5">
             Facility Record Card
           </span>
-          <h4 className="font-heading text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+          <h4 className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
             {record.facility}
           </h4>
         </div>
-        <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center text-sm shrink-0 shadow-2xs group-hover:bg-blue-600 group-hover:text-white transition-all">
+        <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm shrink-0 shadow-2xs group-hover:bg-blue-600 group-hover:text-white transition-all">
           <i className={`fa-solid ${iconClass}`}></i>
         </div>
       </div>
@@ -37,14 +37,14 @@ export const FacilityCard: React.FC<FacilityCardProps> = ({ record }) => {
       {/* Primary Metrics Grid */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-          <span className="text-[10px] text-gray-400 font-semibold block">Total Bookings</span>
-          <span className="font-heading text-base font-bold text-gray-900">
+          <span className="text-[10px] text-gray-400 font-medium block">Total Bookings</span>
+          <span className="text-base font-semibold text-gray-900">
             {record.bookings.toLocaleString()}
           </span>
         </div>
         <div className="bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-          <span className="text-[10px] text-gray-400 font-semibold block">Total Revenue</span>
-          <span className="font-heading text-base font-bold text-emerald-600">
+          <span className="text-[10px] text-gray-400 font-medium block">Total Revenue</span>
+          <span className="text-base font-semibold text-emerald-600">
             ₦{record.revenue.toLocaleString()}
           </span>
         </div>
@@ -53,8 +53,8 @@ export const FacilityCard: React.FC<FacilityCardProps> = ({ record }) => {
       {/* Average Revenue & Percentage breakdown */}
       <div className="space-y-2 border-t border-gray-100 pt-3">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-500 font-medium">Average Revenue</span>
-          <span className="font-bold text-gray-900 font-heading">
+          <span className="text-gray-500 font-normal">Average Revenue</span>
+          <span className="font-semibold text-gray-900">
             ₦{record.averageRevenue.toLocaleString()}
           </span>
         </div>
@@ -63,7 +63,7 @@ export const FacilityCard: React.FC<FacilityCardProps> = ({ record }) => {
         <div>
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-gray-500 font-medium">% of Total Revenue</span>
-            <span className="font-bold text-blue-600 font-mono">
+            <span className="font-semibold text-blue-600 font-mono">
               {record.percentageOfTotal}%
             </span>
           </div>

@@ -125,7 +125,7 @@ export const FacilityPerformanceTable: React.FC<FacilityPerformanceTableProps> =
       {/* Table Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h3 className="font-heading text-lg font-bold text-gray-900 tracking-tight">
+          <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
             Facility Performance
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -161,7 +161,7 @@ export const FacilityPerformanceTable: React.FC<FacilityPerformanceTableProps> =
       {/* Clean Table Container with Fixed Height & Scrollbar */}
       <div className="overflow-x-auto max-h-[260px] overflow-y-auto rounded-xl border border-gray-200/80 custom-scrollbar">
         <table className="w-full text-left text-xs">
-          <thead className="bg-gray-50/80 border-b border-gray-200/80 text-gray-500 font-bold uppercase tracking-wider">
+          <thead className="bg-gray-50/80 border-b border-gray-200/80 text-gray-500 font-medium uppercase tracking-wider">
             <tr>
               <th scope="col" className="py-3 px-4">
                 Facility Name
@@ -181,7 +181,7 @@ export const FacilityPerformanceTable: React.FC<FacilityPerformanceTableProps> =
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-gray-100 font-medium text-gray-800 bg-white">
+          <tbody className="divide-y divide-gray-100 font-normal text-gray-800 bg-white">
             {filteredFacilities.map((fac) => (
               <tr
                 key={fac.id}
@@ -190,11 +190,11 @@ export const FacilityPerformanceTable: React.FC<FacilityPerformanceTableProps> =
                 {/* Facility Name & Code */}
                 <td className="py-3.5 px-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs shrink-0 font-bold font-heading border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs shrink-0 font-medium group-hover:bg-blue-600 group-hover:text-white transition-colors">
                       <i className="fa-solid fa-building text-xs"></i>
                     </div>
                     <div>
-                      <div className="font-semibold text-gray-900 leading-snug">
+                      <div className="font-medium text-gray-900 leading-snug">
                         {fac.facility}
                       </div>
                       <div className="text-[10px] text-gray-400 font-mono">
@@ -205,34 +205,34 @@ export const FacilityPerformanceTable: React.FC<FacilityPerformanceTableProps> =
                 </td>
 
                 {/* Branch */}
-                <td className="py-3.5 px-4 text-gray-600 font-semibold">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 text-[11px]">
+                <td className="py-3.5 px-4 text-gray-600 font-normal">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 text-[11px] font-normal">
                     <i className="fa-solid fa-location-dot text-[10px] text-gray-400"></i>
                     {fac.branch}
                   </span>
                 </td>
 
                 {/* Bookings */}
-                <td className="py-3.5 px-4 text-right font-bold text-gray-900">
+                <td className="py-3.5 px-4 text-right font-normal text-gray-900">
                   {fac.bookings.toLocaleString()}
                 </td>
 
                 {/* Revenue */}
-                <td className="py-3.5 px-4 text-right font-bold text-gray-900 font-heading">
+                <td className="py-3.5 px-4 text-right font-semibold text-gray-900">
                   {fac.revenue}
                 </td>
 
                 {/* Status Badge */}
                 <td className="py-3.5 px-4 text-center">
                   <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium ${
                       fac.status === 'Peak Load'
-                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        ? 'bg-amber-50 text-amber-700'
                         : fac.status === 'Operational'
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        ? 'bg-blue-50 text-blue-700'
                         : fac.status === 'Optimal'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-rose-50 text-rose-700'
                     }`}
                   >
                     <span

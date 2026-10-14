@@ -72,8 +72,17 @@ export class FinanceService {
       if (p === 'full_year' || p === '12M' || p === 'last_12_months' || p === 'all') {
         return true;
       }
-      if (p === 'custom' && filters?.startDate && filters?.endDate) {
-        return dateStr >= filters.startDate && dateStr <= filters.endDate;
+      if (p === 'custom') {
+        if (filters?.customDates && filters.customDates.length > 0) {
+          return filters.customDates.includes(dateStr);
+        }
+        if (filters?.startDate && filters?.endDate) {
+          return dateStr >= filters.startDate && dateStr <= filters.endDate;
+        }
+        if (filters?.startDate) {
+          return dateStr === filters.startDate;
+        }
+        return true;
       }
       return true;
     };
@@ -167,6 +176,10 @@ export class FinanceService {
       for (let i = 1; i <= 31; i++) {
         const dayStr = i.toString().padStart(2, '0');
         allDatesSet.add(`${targetMonthStr}-${dayStr}`);
+      }
+    } else if (period === 'custom' && filters?.customDates && filters.customDates.length > 0) {
+      for (const cd of filters.customDates) {
+        allDatesSet.add(cd);
       }
     }
 

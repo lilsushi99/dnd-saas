@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { ExpenseCategory } from '../../types';
 import { ExpenseApiService } from '../../services/expenseService';
 import { useToast } from '../../context/ToastContext';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
+
+const statusOptions: SelectOption[] = [
+  { id: 'all', label: 'All Status' },
+  { id: 'Active', label: 'Active' },
+  { id: 'Inactive', label: 'Inactive' },
+];
+
+const categoryStatusOptions: SelectOption[] = [
+  { id: 'Active', label: 'Active' },
+  { id: 'Inactive', label: 'Inactive' },
+];
 
 export const ExpenseCategoriesPage: React.FC = () => {
   const { showToast } = useToast();
@@ -106,19 +118,19 @@ export const ExpenseCategoriesPage: React.FC = () => {
       {/* Top Header & Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 border border-gray-200/80 rounded-2xl shadow-2xs">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 font-heading flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
               <i className="fa-solid fa-tags text-sm"></i>
             </span>
             Expense Categories Administration
           </h1>
-          <p className="text-xs text-gray-500 font-sans mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Manage operational expense category classification used across financial loggers and reporting
           </p>
         </div>
         <button
           onClick={handleOpenCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
         >
           <i className="fa-solid fa-plus text-xs"></i>
           Add Expense Category
@@ -129,34 +141,34 @@ export const ExpenseCategoriesPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Categories</p>
-            <p className="text-2xl font-bold text-gray-900 font-heading mt-1">{categories.length}</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Categories</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{categories.length}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
             <i className="fa-solid fa-folder-tree text-base"></i>
           </div>
         </div>
 
         <div className="bg-white p-5 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Categories</p>
-            <p className="text-2xl font-bold text-emerald-600 font-heading mt-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Active Categories</p>
+            <p className="text-2xl font-semibold text-emerald-600 mt-1">
               {categories.filter((c) => c.status === 'Active').length}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
             <i className="fa-solid fa-circle-check text-base"></i>
           </div>
         </div>
 
         <div className="bg-white p-5 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Inactive Categories</p>
-            <p className="text-2xl font-bold text-gray-600 font-heading mt-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Inactive Categories</p>
+            <p className="text-2xl font-semibold text-gray-600 mt-1">
               {categories.filter((c) => c.status === 'Inactive').length}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500">
+          <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500">
             <i className="fa-solid fa-ban text-base"></i>
           </div>
         </div>
@@ -176,17 +188,13 @@ export const ExpenseCategoriesPage: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-xs text-gray-500 font-semibold whitespace-nowrap">Status:</span>
-            <select
+          <div className="w-full sm:w-44 shrink-0">
+            <CustomSelect
+              options={statusOptions}
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 focus:outline-none focus:border-blue-500 cursor-pointer font-sans"
-            >
-              <option value="all">All Statuses</option>
-              <option value="Active">Active Only</option>
-              <option value="Inactive">Inactive Only</option>
-            </select>
+              onChange={(val) => setStatusFilter(val as any)}
+              icon="fa-solid fa-filter"
+            />
           </div>
         </div>
 
@@ -194,7 +202,7 @@ export const ExpenseCategoriesPage: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100 text-[11px] font-bold text-gray-500 uppercase tracking-wider font-heading">
+              <tr className="bg-gray-50 border-b border-gray-100 text-[11px] font-medium text-gray-500 uppercase tracking-wider">
                 <th className="py-3.5 px-6">Category ID</th>
                 <th className="py-3.5 px-6">Category Name</th>
                 <th className="py-3.5 px-6">Description</th>
@@ -220,9 +228,8 @@ export const ExpenseCategoriesPage: React.FC = () => {
               ) : (
                 filteredCategories.map((cat) => (
                   <tr key={cat.id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="py-3.5 px-6 font-mono font-bold text-blue-600">{cat.id}</td>
-                    <td className="py-3.5 px-6 font-semibold text-gray-900 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <td className="py-3.5 px-6 font-mono font-normal text-blue-600">{cat.id}</td>
+                    <td className="py-3.5 px-6 font-medium text-gray-900">
                       {cat.name}
                     </td>
                     <td className="py-3.5 px-6 text-gray-600 max-w-xs truncate">
@@ -230,17 +237,12 @@ export const ExpenseCategoriesPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-6">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium ${
                           cat.status === 'Active'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-gray-100 text-gray-600 border border-gray-200'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-gray-100 text-gray-600'
                         }`}
                       >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            cat.status === 'Active' ? 'bg-emerald-500' : 'bg-gray-400'
-                          }`}
-                        ></span>
                         {cat.status}
                       </span>
                     </td>
@@ -249,7 +251,7 @@ export const ExpenseCategoriesPage: React.FC = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleOpenEdit(cat)}
-                          className="px-2.5 py-1.5 bg-gray-100 hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                          className="px-2.5 py-1.5 bg-gray-100 hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                           title="Edit Category"
                         >
                           <i className="fa-solid fa-pen-to-square text-xs"></i>
@@ -278,11 +280,11 @@ export const ExpenseCategoriesPage: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden transform transition-all">
             <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
                   <i className="fa-solid fa-tags text-sm"></i>
                 </div>
                 <div>
-                  <h3 className="font-heading font-bold text-gray-900 text-base">
+                  <h3 className="font-semibold text-gray-900 text-base">
                     {editingCategory ? 'Edit Expense Category' : 'Create Expense Category'}
                   </h3>
                   <p className="text-xs text-gray-500">
@@ -331,14 +333,11 @@ export const ExpenseCategoriesPage: React.FC = () => {
                   <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
                     Status
                   </label>
-                  <select
+                  <CustomSelect
+                    options={categoryStatusOptions}
                     value={categoryStatus}
-                    onChange={(e) => setCategoryStatus(e.target.value as any)}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium cursor-pointer"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
+                    onChange={(val) => setCategoryStatus(val as 'Active' | 'Inactive')}
+                  />
                 </div>
               )}
 
@@ -346,14 +345,14 @@ export const ExpenseCategoriesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors uppercase tracking-wider cursor-pointer"
+                  className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors uppercase tracking-wider cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition-colors uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition-colors uppercase tracking-wider flex items-center gap-2 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DashboardFilters, Branch } from '../../types';
 import { AdminApiService } from '../../services/adminService';
 
@@ -14,7 +14,13 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
   onExport,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showBranchMenu, setShowBranchMenu] = useState(false);
+  const [showDateMenu, setShowDateMenu] = useState(false);
   const [dbBranches, setDbBranches] = useState<Branch[]>([]);
+
+  const branchRef = useRef<HTMLDivElement>(null);
+  const dateRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     AdminApiService.fetchBranches()
@@ -22,21 +28,46 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
       .catch((err) => console.error('Failed to load branches in filter bar:', err));
   }, []);
 
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (branchRef.current && !branchRef.current.contains(event.target as Node)) {
+        setShowBranchMenu(false);
+      }
+      if (dateRef.current && !dateRef.current.contains(event.target as Node)) {
+        setShowDateMenu(false);
+      }
+      if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const branchOptions = [
-    { id: 'all', label: 'All Branches (Global)' },
+    { id: 'all', label: 'All Branches' },
     ...dbBranches.map((b) => ({ id: b.id, label: b.name })),
   ];
 
   const dateRanges = [
-    { id: 'all', label: 'All Time (Global)' },
+    { id: 'last_7', label: 'Last Seven Days' },
     { id: 'this_month', label: 'This Month' },
-    { id: 'last_7', label: 'Last 7 Days' },
     { id: 'last_30', label: 'Last 30 Days' },
     { id: 'last_12_months', label: 'Last 12 Months' },
+    { id: 'all', label: 'All Time' },
     { id: 'custom', label: 'Custom Range' },
   ];
 
-  const handleDateRangeChange = (newRange: string) => {
+  const currentBranchLabel =
+    branchOptions.find((b) => b.id === filters.branch)?.label || 'All Branches';
+
+  const currentDateLabel =
+    dateRanges.find((d) => d.id === filters.dateRange)?.label ||
+    (filters.dateRange === 'all' ? 'All Time' : 'Last Seven Days');
+
+  const handleSelectDateRange = (newRange: string) => {
+    setShowDateMenu(false);
     if (newRange === 'custom' && (!filters.startDate || !filters.endDate)) {
       const today = new Date().toISOString().split('T')[0];
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -54,127 +85,166 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-200/80 rounded-2xl p-4 mb-6 shadow-2xs flex flex-wrap items-center justify-between gap-4 font-sans">
-      {/* Left Group: Primary Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-wider pr-2 border-r border-gray-200">
-          <i className="fa-solid fa-filter text-blue-600 text-xs"></i>
-          <span>Unified Filters</span>
-        </div>
+    <div className="bg-white rounded-xl px-4 py-2.5 mb-6 shadow-xs flex flex-wrap items-center justify-between gap-3 font-sans">
+      {/* Left: Filter Dropdowns */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* All Branches Dropdown */}
+        <div className="relative" ref={branchRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowBranchMenu(!showBranchMenu);
+              setShowDateMenu(false);
+              setShowExportMenu(false);
+            }}
+            className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-medium text-gray-700 flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <i className="fa-solid fa-building-user text-gray-400 text-xs"></i>
+            <span>{currentBranchLabel}</span>
+            <i
+              className={`fa-solid fa-chevron-down text-[10px] text-gray-400 ml-1 transition-transform ${
+                showBranchMenu ? 'rotate-180' : ''
+              }`}
+            ></i>
+          </button>
 
-        {/* Branch Selector */}
-        <div className="relative">
-          <label className="sr-only">Branch</label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-              <i className="fa-solid fa-building-user text-xs"></i>
-            </div>
-            <select
-              value={filters.branch}
-              onChange={(e) =>
-                onFilterChange({ ...filters, branch: e.target.value })
-              }
-              className="pl-8 pr-8 py-2 bg-gray-50 hover:bg-gray-100/80 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all cursor-pointer appearance-none"
-            >
+          {showBranchMenu && (
+            <div className="absolute left-0 mt-2 w-52 bg-white rounded-xl shadow-lg z-30 p-1.5 text-xs font-normal text-gray-700 animate-in fade-in duration-100">
               {branchOptions.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.label}
-                </option>
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => {
+                    onFilterChange({ ...filters, branch: b.id });
+                    setShowBranchMenu(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                    filters.branch === b.id
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <span>{b.label}</span>
+                  {filters.branch === b.id && (
+                    <i className="fa-solid fa-check text-[10px] text-blue-600"></i>
+                  )}
+                </button>
               ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-400">
-              <i className="fa-solid fa-chevron-down text-[10px]"></i>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Date Range Selector */}
-        <div className="relative">
-          <label className="sr-only">Date Range</label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-              <i className="fa-regular fa-calendar-days text-xs"></i>
-            </div>
-            <select
-              value={filters.dateRange}
-              onChange={(e) => handleDateRangeChange(e.target.value)}
-              className="pl-8 pr-8 py-2 bg-gray-50 hover:bg-gray-100/80 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all cursor-pointer appearance-none"
-            >
+        {/* Date Range Dropdown */}
+        <div className="relative" ref={dateRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowDateMenu(!showDateMenu);
+              setShowBranchMenu(false);
+              setShowExportMenu(false);
+            }}
+            className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-medium text-gray-700 flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <i className="fa-regular fa-calendar-days text-gray-400 text-xs"></i>
+            <span>{currentDateLabel}</span>
+            <i
+              className={`fa-solid fa-chevron-down text-[10px] text-gray-400 ml-1 transition-transform ${
+                showDateMenu ? 'rotate-180' : ''
+              }`}
+            ></i>
+          </button>
+
+          {showDateMenu && (
+            <div className="absolute left-0 mt-2 w-48 bg-white rounded-xl shadow-lg z-30 p-1.5 text-xs font-normal text-gray-700 animate-in fade-in duration-100">
               {dateRanges.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => handleSelectDateRange(d.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                    filters.dateRange === d.id
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <span>{d.label}</span>
+                  {filters.dateRange === d.id && (
+                    <i className="fa-solid fa-check text-[10px] text-blue-600"></i>
+                  )}
+                </button>
               ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-400">
-              <i className="fa-solid fa-chevron-down text-[10px]"></i>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Custom Range Date Pickers */}
+        {/* Custom Range Date Pickers (if custom selected) */}
         {filters.dateRange === 'custom' && (
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-gray-700 animate-in fade-in duration-150">
-            <span className="text-gray-400 font-normal text-[11px]">Start:</span>
+          <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 text-xs text-gray-700">
+            <span className="text-gray-400 text-[11px]">Start:</span>
             <input
               type="date"
               value={filters.startDate || ''}
-              onChange={(e) =>
-                onFilterChange({ ...filters, startDate: e.target.value })
-              }
-              className="bg-transparent text-gray-900 focus:outline-none text-xs font-mono cursor-pointer"
+              onChange={(e) => onFilterChange({ ...filters, startDate: e.target.value })}
+              className="bg-transparent text-gray-900 focus:outline-none text-xs cursor-pointer font-sans"
             />
             <span className="text-gray-300">|</span>
-            <span className="text-gray-400 font-normal text-[11px]">End:</span>
+            <span className="text-gray-400 text-[11px]">End:</span>
             <input
               type="date"
               value={filters.endDate || ''}
-              onChange={(e) =>
-                onFilterChange({ ...filters, endDate: e.target.value })
-              }
-              className="bg-transparent text-gray-900 focus:outline-none text-xs font-mono cursor-pointer"
+              onChange={(e) => onFilterChange({ ...filters, endDate: e.target.value })}
+              className="bg-transparent text-gray-900 focus:outline-none text-xs cursor-pointer font-sans"
             />
           </div>
         )}
       </div>
 
-      {/* Right Group: Global Actions (Export) */}
-      <div className="flex items-center gap-2 ml-auto">
-        <div className="relative">
-          <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
-            className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
-          >
-            <i className="fa-solid fa-file-export text-gray-500"></i>
-            <span>Export Dashboard</span>
-            <i className="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
-          </button>
+      {/* Right: Export Dashboard Button */}
+      <div className="relative" ref={exportRef}>
+        <button
+          type="button"
+          onClick={() => {
+            setShowExportMenu(!showExportMenu);
+            setShowBranchMenu(false);
+            setShowDateMenu(false);
+          }}
+          className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-medium text-gray-700 flex items-center gap-2 transition-colors cursor-pointer"
+        >
+          <i className="fa-solid fa-file-export text-gray-400 text-xs"></i>
+          <span>Export Dashboard</span>
+          <i
+            className={`fa-solid fa-chevron-down text-[10px] text-gray-400 ml-1 transition-transform ${
+              showExportMenu ? 'rotate-180' : ''
+            }`}
+          ></i>
+        </button>
 
-          {showExportMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-30 p-1 text-xs font-medium text-gray-700">
-              <button
-                onClick={() => {
-                  onExport('csv');
-                  setShowExportMenu(false);
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center gap-2 transition-colors cursor-pointer"
-              >
-                <i className="fa-solid fa-file-csv text-green-600 w-4"></i>
-                <span>Export as CSV</span>
-              </button>
-              <button
-                onClick={() => {
-                  onExport('pdf');
-                  setShowExportMenu(false);
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 flex items-center gap-2 transition-colors cursor-pointer"
-              >
-                <i className="fa-solid fa-file-pdf text-red-600 w-4"></i>
-                <span>Export as PDF Report</span>
-              </button>
-            </div>
-          )}
-        </div>
+        {showExportMenu && (
+          <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg z-30 p-1.5 text-xs font-normal text-gray-700 animate-in fade-in duration-100">
+            <button
+              type="button"
+              onClick={() => {
+                onExport('csv');
+                setShowExportMenu(false);
+              }}
+              className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors cursor-pointer text-gray-700"
+            >
+              <i className="fa-solid fa-file-csv text-emerald-600 w-4"></i>
+              <span>Export as CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onExport('pdf');
+                setShowExportMenu(false);
+              }}
+              className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors cursor-pointer text-gray-700"
+            >
+              <i className="fa-solid fa-file-pdf text-rose-600 w-4"></i>
+              <span>Export as PDF Report</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

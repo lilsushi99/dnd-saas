@@ -41,7 +41,12 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
         setExpenses(data.totalExpenses || 0);
         setNetProfit(data.netProfit || 0);
         setTotalBookings(data.totalBookings || 0);
-        const occ = data.occupancyRate !== undefined ? Number(data.occupancyRate).toFixed(1) : (data.totalBookings > 0 ? (Math.min(100, (data.totalBookings / 30) * 100)).toFixed(1) : '0.0');
+        const occ =
+          data.occupancyRate !== undefined
+            ? Number(data.occupancyRate).toFixed(1)
+            : data.totalBookings > 0
+            ? Math.min(100, (data.totalBookings / 30) * 100).toFixed(1)
+            : '0.0';
         setOccupancyRate(occ);
       })
       .catch((err) => {
@@ -54,8 +59,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       });
   }, [selectedBranch, selectedRange, filters?.startDate, filters?.endDate]);
 
-  const formatCurrency = (val: number) =>
-    `₦${Math.round(val).toLocaleString()}`;
+  const formatCurrency = (val: number) => `₦${Math.round(val).toLocaleString()}`;
 
   const metrics: MetricCardData[] = [
     {
@@ -66,7 +70,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       isPositive: true,
       timeframe: 'vs previous period',
       iconClass: 'fa-solid fa-dollar-sign',
-      iconBg: 'bg-blue-50 border border-blue-100',
+      iconBg: 'bg-blue-50',
       iconColor: 'text-blue-600',
     },
     {
@@ -77,7 +81,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       isPositive: expenses === 0,
       timeframe: 'vs previous period',
       iconClass: 'fa-solid fa-credit-card',
-      iconBg: 'bg-slate-50 border border-slate-200/80',
+      iconBg: 'bg-slate-50',
       iconColor: 'text-slate-600',
     },
     {
@@ -88,7 +92,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       isPositive: netProfit >= 0,
       timeframe: 'vs previous period',
       iconClass: 'fa-solid fa-chart-pie',
-      iconBg: 'bg-emerald-50 border border-emerald-100',
+      iconBg: 'bg-emerald-50',
       iconColor: 'text-emerald-600',
     },
     {
@@ -99,7 +103,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       isPositive: true,
       timeframe: 'total recorded',
       iconClass: 'fa-solid fa-calendar-check',
-      iconBg: 'bg-indigo-50 border border-indigo-100',
+      iconBg: 'bg-indigo-50',
       iconColor: 'text-indigo-600',
     },
     {
@@ -110,7 +114,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       isPositive: true,
       timeframe: 'utilization',
       iconClass: 'fa-solid fa-building',
-      iconBg: 'bg-amber-50 border border-amber-100',
+      iconBg: 'bg-amber-50',
       iconColor: 'text-amber-600',
     },
   ];
@@ -120,15 +124,15 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       {metrics.map((card) => (
         <div
           key={card.id}
-          className="h-full bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group overflow-hidden min-w-0"
+          className="h-full bg-white rounded-xl p-5 shadow-xs flex flex-col justify-between overflow-hidden min-w-0"
         >
           {/* Top row: Title and Icon */}
           <div className="flex items-start justify-between gap-2 mb-3">
-            <span className="text-xs font-semibold text-gray-500 whitespace-normal break-words leading-snug flex-1">
+            <span className="text-xs font-normal text-gray-500 whitespace-normal break-words leading-snug flex-1">
               {card.title}
             </span>
             <div
-              className={`w-8 h-8 rounded-xl ${card.iconBg} ${card.iconColor} flex items-center justify-center text-xs shrink-0 group-hover:scale-105 transition-transform`}
+              className={`w-8 h-8 rounded-xl ${card.iconBg} ${card.iconColor} flex items-center justify-center text-xs shrink-0`}
             >
               <i className={card.iconClass}></i>
             </div>
@@ -136,15 +140,15 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
 
           {/* Middle: Value */}
           <div className="mb-2 min-w-0">
-            <span className="font-heading text-lg sm:text-xl md:text-2xl font-bold text-gray-900 tracking-tight block truncate break-words">
+            <span className="font-heading text-xl sm:text-2xl font-medium text-gray-900 tracking-tight block truncate break-words">
               {card.value}
             </span>
           </div>
 
           {/* Bottom row: Trend indicator */}
-          <div className="flex items-center gap-1.5 text-xs font-medium min-w-0">
+          <div className="flex items-center gap-1.5 text-xs font-normal min-w-0">
             <span
-              className={`inline-flex items-center gap-1 font-bold shrink-0 ${
+              className={`inline-flex items-center gap-1 font-medium shrink-0 ${
                 card.isPositive ? 'text-emerald-600' : 'text-rose-600'
               }`}
             >
@@ -155,9 +159,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
               ></i>
               {card.change}
             </span>
-            <span className="text-gray-400 text-[11px] truncate">
-              {card.timeframe}
-            </span>
+            <span className="text-gray-400 text-[11px] truncate">{card.timeframe}</span>
           </div>
         </div>
       ))}

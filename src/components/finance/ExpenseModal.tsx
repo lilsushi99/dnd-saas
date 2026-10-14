@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Expense, ExpenseCategory, Branch } from '../../types';
 import { AdminApiService } from '../../services/adminService';
+import { CustomDatePicker } from '../common/CustomDatePicker';
+import { CustomSelect } from '../common/CustomSelect';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -67,6 +69,28 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   if (!isOpen) return null;
 
+  const categoryOptions = categories.map((cat) => ({
+    id: cat.name,
+    label: cat.name,
+  }));
+  if (category && !categoryOptions.some((c) => c.id === category)) {
+    categoryOptions.unshift({ id: category, label: category });
+  }
+
+  const branchOptions = branches.map((b) => ({
+    id: b.name,
+    label: b.name,
+  }));
+  if (branches.length > 1) {
+    branchOptions.push({
+      id: 'Both Branches',
+      label: 'All / Shared Across Branches (Split)',
+    });
+  }
+  if (branch && !branchOptions.some((b) => b.id === branch)) {
+    branchOptions.unshift({ id: branch, label: branch });
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -103,11 +127,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         {/* Modal Header */}
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
               <i className="fa-solid fa-receipt text-lg"></i>
             </div>
             <div>
-              <h3 className="font-heading font-bold text-gray-900 text-lg">
+              <h3 className="text-lg font-semibold text-gray-900">
                 {editingExpense ? 'Edit Expense Record' : 'Record New Expense'}
               </h3>
               <p className="text-xs text-gray-500 font-medium">
@@ -141,19 +165,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 type="text"
                 disabled
                 value={editingExpense ? editingExpense.id : 'EXP-IPHIN-2026-AUTO'}
-                className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-500 cursor-not-allowed font-mono"
+                className="w-full bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-500 cursor-not-allowed font-mono"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
                 Expense Date *
               </label>
-              <input
-                type="date"
-                required
+              <CustomDatePicker
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                onChange={setDate}
+                required
               />
             </div>
           </div>
@@ -198,24 +220,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
                 Expense Category *
               </label>
-              <select
+              <CustomSelect
+                options={categoryOptions}
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
-              >
-                {category && !categories.some((c) => c.name === category) && (
-                  <option value={category}>{category}</option>
-                )}
-                {categories.length > 0 ? (
-                  categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
-                  ))
-                ) : (
-                  !category && <option value="">No categories found</option>
-                )}
-              </select>
+                onChange={setCategory}
+                placeholder="Select category"
+              />
             </div>
           </div>
 
@@ -223,26 +233,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
               Branch Allocation *
             </label>
-            <select
+            <CustomSelect
+              options={branchOptions}
               value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium cursor-pointer"
-            >
-              {branch && !branches.some((b) => b.name === branch) && branch !== 'Both Branches' && (
-                <option value={branch}>{branch}</option>
-              )}
-              {branches.map((b) => (
-                <option key={b.id} value={b.name}>
-                  {b.name}
-                </option>
-              ))}
-              {branches.length > 1 && (
-                <option value="Both Branches">All / Shared Across Branches (Split)</option>
-              )}
-              {branches.length === 0 && !branch && (
-                <option value="">No branches found</option>
-              )}
-            </select>
+              onChange={setBranch}
+              placeholder="Select branch"
+            />
             {branch === 'Both Branches' && (
               <p className="mt-1.5 text-xs text-blue-600 font-medium flex items-center gap-1.5 bg-blue-50 p-2 rounded-lg border border-blue-100">
                 <i className="fa-solid fa-scale-balanced text-blue-500"></i>
@@ -269,14 +265,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors uppercase tracking-wider cursor-pointer"
+              className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors uppercase tracking-wider cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition-colors uppercase tracking-wider flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition-colors uppercase tracking-wider flex items-center gap-2 cursor-pointer"
             >
               {isSubmitting ? (
                 <>

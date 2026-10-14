@@ -15,6 +15,8 @@ import { useFinanceReports } from '../../hooks/useFinanceReports';
 import { exportFinanceReportToPDF } from '../../utils/exportUtils';
 import { Branch } from '../../types';
 import { AdminApiService } from '../../services/adminService';
+import { CustomSelect } from '../common/CustomSelect';
+import { MultiDatePicker } from '../common/MultiDatePicker';
 
 interface ReportsPageProps {
   branchFilter?: string;
@@ -29,15 +31,14 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
     error,
     period,
     setPeriod,
-    startDate,
-    setStartDate,
-    endDate,
-    setEndDate,
+    customDates,
+    setCustomDates,
     branch,
     setBranch,
   } = useFinanceReports(branchFilter);
 
   const [dbBranches, setDbBranches] = useState<Branch[]>([]);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   useEffect(() => {
     AdminApiService.fetchBranches()
@@ -47,22 +48,37 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
 
   const periods = [
     { id: 'today', label: 'Today' },
-    { id: 'last_7_days', label: 'Last 7 Days' },
+    { id: 'last_7_days', label: 'Last Seven Days' },
     { id: 'this_month', label: 'This Month' },
     { id: 'full_year', label: 'Full Year' },
     { id: 'custom', label: 'Custom Date' },
   ];
 
-  const branches = [
+  const branchOptions = [
     { id: 'all', label: 'All Branches' },
     ...dbBranches.map((b) => ({ id: b.name, label: b.name })),
   ];
 
+  const formatPeriodDisplay = () => {
+    if (period === 'custom') {
+      if (customDates.length === 0) return 'Custom Date';
+      if (customDates.length === 1) return `Date: ${customDates[0]}`;
+      return `${customDates.length} Selected Dates`;
+    }
+    const found = periods.find((p) => p.id === period);
+    return found ? found.label : period;
+  };
+
   const handleExportCSV = () => {
     if (!analytics) return;
+    const periodDisplay =
+      period === 'custom' && customDates.length > 0
+        ? `Custom Dates (${customDates.join('; ')})`
+        : formatPeriodDisplay();
+
     const lines = [
       'Financial Reports & Analytics Summary',
-      `Period,${period}`,
+      `Period,${periodDisplay}`,
       `Branch,${branch}`,
       `Generated Date,${new Date().toISOString().slice(0, 10)}`,
       '',
@@ -104,9 +120,14 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
 
   const handleExportExcel = () => {
     if (!analytics) return;
+    const periodDisplay =
+      period === 'custom' && customDates.length > 0
+        ? `Custom Dates (${customDates.join('; ')})`
+        : formatPeriodDisplay();
+
     const lines = [
       'FINANCIAL REPORTS & ANALYTICS SUMMARY',
-      `Period:\t${period}`,
+      `Period:\t${periodDisplay}`,
       `Branch:\t${branch}`,
       `Date Generated:\t${new Date().toISOString().slice(0, 10)}`,
       '',
@@ -148,9 +169,8 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
 
   const handleExportPDF = () => {
     if (!analytics) return;
-    const periodObj = periods.find((p) => p.id === period);
-    const periodLabel = periodObj ? periodObj.label : period;
-    const branchObj = branches.find((b) => b.id === branch);
+    const periodLabel = formatPeriodDisplay();
+    const branchObj = branchOptions.find((b) => b.id === branch);
     const branchLabel = branchObj ? branchObj.label : branch;
 
     exportFinanceReportToPDF({
@@ -160,38 +180,43 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
     });
   };
 
+  const handleCustomDateClick = () => {
+    setPeriod('custom');
+    // If no custom dates selected yet, default to today
+    if (customDates.length === 0) {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      setCustomDates([todayIso]);
+    }
+    setIsCalendarOpen((prev) => !prev);
+  };
+
   return (
     <div className="space-y-6 font-sans">
-      {/* HEADER & TOP TOOLBAR */}
+      {/* 1. PAGE HEADING AND EXPORT ACTIONS */}
       <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-            Reports & Financial Analytics
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Read-only financial statements compiled from verified bookings and expense ledgers
-          </p>
-        </div>
+        <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
+          Report and Financial Analytics
+        </h2>
 
         {/* EXPORT BUTTONS */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs flex items-center gap-2 cursor-pointer"
+            className="px-3.5 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs flex items-center gap-2 cursor-pointer"
           >
             <i className="fa-solid fa-file-csv text-emerald-600"></i>
             CSV
           </button>
           <button
             onClick={handleExportExcel}
-            className="px-3.5 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs flex items-center gap-2 cursor-pointer"
+            className="px-3.5 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs flex items-center gap-2 cursor-pointer"
           >
             <i className="fa-solid fa-file-excel text-emerald-600"></i>
             Excel
           </button>
           <button
             onClick={handleExportPDF}
-            className="px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl transition-colors shadow-xs flex items-center gap-2 uppercase tracking-wider cursor-pointer"
+            className="px-3.5 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl transition-colors shadow-xs flex items-center gap-2 uppercase tracking-wider cursor-pointer"
           >
             <i className="fa-solid fa-file-pdf"></i>
             Print / PDF
@@ -199,59 +224,74 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
         </div>
       </div>
 
-      {/* FILTERS BAR */}
+      {/* 2. DATE FILTERS AND CUSTOM CALENDAR */}
       <div className="bg-white border border-gray-200/80 rounded-2xl p-4 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        {/* Time Periods */}
+        {/* Time Periods Pill Group */}
         <div className="flex flex-wrap items-center gap-1.5 bg-gray-100/80 p-1 rounded-xl">
-          {periods.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setPeriod(p.id as any)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                period === p.id
-                  ? 'bg-white text-blue-700 shadow-xs'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
+          {periods.map((p) => {
+            const isSelected = period === p.id;
+            if (p.id === 'custom') {
+              return (
+                <div key={p.id} className="relative">
+                  <button
+                    type="button"
+                    onClick={handleCustomDateClick}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-white text-blue-700 shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <i className="fa-regular fa-calendar-days text-[11px] text-blue-600"></i>
+                    <span>{p.label}</span>
+                    {isSelected && customDates.length > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-medium">
+                        {customDates.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Multi-Date Calendar Popover */}
+                  <MultiDatePicker
+                    selectedDates={customDates}
+                    onChange={(newDates) => setCustomDates(newDates)}
+                    isOpen={isCalendarOpen}
+                    onClose={() => setIsCalendarOpen(false)}
+                  />
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={p.id}
+                onClick={() => {
+                  setPeriod(p.id as any);
+                  setIsCalendarOpen(false);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Custom Date Pickers */}
-        {period === 'custom' && (
-          <div className="flex items-center gap-2 bg-blue-50/50 p-2 rounded-xl border border-blue-100 text-xs">
-            <span className="font-semibold text-gray-700">From:</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="bg-white border border-gray-300 rounded-lg px-2 py-1 text-gray-900"
-            />
-            <span className="font-semibold text-gray-700">To:</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="bg-white border border-gray-300 rounded-lg px-2 py-1 text-gray-900"
+        {/* Branch Filter with CustomSelect */}
+        <div className="flex items-center gap-2 min-w-[220px]">
+          <span className="text-xs font-semibold text-gray-500 shrink-0">Branch:</span>
+          <div className="flex-1">
+            <CustomSelect
+              options={branchOptions}
+              value={branch}
+              onChange={(val) => setBranch(String(val))}
+              className="py-1.5 text-xs"
             />
           </div>
-        )}
-
-        {/* Branch Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500">Branch:</span>
-          <select
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-            className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
-          >
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.label}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
@@ -269,105 +309,95 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
         <div className="p-12 text-center text-gray-500 text-xs font-semibold">No data available.</div>
       ) : (
         <>
-          {/* ANALYTICS CARDS (6 KPIs) */}
+          {/* ANALYTICS CARDS (6 KPIs) — Clean hierarchy: heading, icon without border, metric value */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            {/* Total Revenue */}
+            {/* 1. Total Revenue */}
             <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Revenue</span>
-                <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Total Revenue</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
                   <i className="fa-solid fa-sack-dollar text-xs"></i>
                 </div>
               </div>
               <div className="mt-3">
-                <span className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
                   ₦{analytics.totalRevenue.toLocaleString('en-US')}
                 </span>
-                <p className="text-[11px] text-blue-600 font-semibold mt-0.5 flex items-center gap-1">
-                  <i className="fa-solid fa-arrow-up-right text-[10px]"></i> Gross Income
-                </p>
               </div>
             </div>
 
-            {/* Total Expenses */}
+            {/* 2. Total Expenses */}
             <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Expenses</span>
-                <div className="w-8 h-8 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Total Expenses</span>
+                <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
                   <i className="fa-solid fa-receipt text-xs"></i>
                 </div>
               </div>
               <div className="mt-3">
-                <span className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
                   ₦{analytics.totalExpenses.toLocaleString('en-US')}
                 </span>
-                <p className="text-[11px] text-red-600 font-semibold mt-0.5">Total Outflow</p>
               </div>
             </div>
 
-            {/* Net Profit */}
+            {/* 3. Net Profit */}
             <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Net Profit</span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Net Profit</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
                   <i className="fa-solid fa-chart-line text-xs"></i>
                 </div>
               </div>
               <div className="mt-3">
-                <span className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
                   ₦{analytics.netProfit.toLocaleString('en-US')}
                 </span>
-                <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">
-                  Revenue - Expenses
-                </p>
               </div>
             </div>
 
-            {/* Profit Margin (%) */}
+            {/* 4. Profit Margin */}
             <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Profit Margin</span>
-                <div className="w-8 h-8 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Profit Margin</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
                   <i className="fa-solid fa-percent text-xs"></i>
                 </div>
               </div>
               <div className="mt-3">
-                <span className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
                   {analytics.netProfitMargin.toFixed(1)}%
                 </span>
-                <p className="text-[11px] text-purple-600 font-semibold mt-0.5">Efficiency Ratio</p>
               </div>
             </div>
 
-            {/* Total Bookings */}
+            {/* 5. Total Bookings */}
             <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Bookings</span>
-                <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Total Bookings</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
                   <i className="fa-solid fa-calendar-check text-xs"></i>
                 </div>
               </div>
               <div className="mt-3">
-                <span className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
                   {analytics.totalBookings}
                 </span>
-                <p className="text-[11px] text-amber-600 font-medium mt-0.5">Total Reservations</p>
               </div>
             </div>
 
-            {/* Unique Clients */}
+            {/* 6. Unique Clients */}
             <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Unique Clients</span>
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Unique Clients</span>
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
                   <i className="fa-solid fa-users text-xs"></i>
                 </div>
               </div>
               <div className="mt-3">
-                <span className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
                   {analytics.uniqueClients}
                 </span>
-                <p className="text-[11px] text-indigo-600 font-medium mt-0.5">Customers Served</p>
               </div>
             </div>
           </div>
@@ -376,14 +406,14 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
           <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
-                <h3 className="font-heading font-bold text-gray-900 text-base">
+                <h3 className="font-semibold text-gray-900 text-base">
                   Revenue, Expenses & Profit Analytics
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Interactive multi-series Area Chart comparing Revenue (Blue), Expenses (Red), and Net Profit (Green) over time
+                  Interactive multi-series Area Chart comparing Revenue (Blue), Expenses (Red), and Net Profit (Green)
                 </p>
               </div>
-              <div className="flex items-center gap-4 text-xs font-semibold bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200 shrink-0">
+              <div className="flex items-center gap-4 text-xs font-semibold bg-gray-50 px-3 py-1.5 rounded-xl shrink-0">
                 <span className="flex items-center gap-1.5 text-blue-600">
                   <span className="w-3 h-3 rounded-full bg-blue-600 inline-block"></span> Revenue
                 </span>
@@ -436,7 +466,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
             {/* Facility Revenue Breakdown */}
             <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs space-y-4">
               <div>
-                <h3 className="font-heading font-bold text-gray-900 text-base">Facility Revenue Breakdown</h3>
+                <h3 className="text-base font-semibold text-gray-900">Facility Revenue Breakdown</h3>
                 <p className="text-xs text-gray-500">Distribution of revenue generated by facility type</p>
               </div>
 
@@ -474,12 +504,12 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
                           className="w-2.5 h-2.5 rounded-full"
                           style={{ backgroundColor: COLOR_PALETTE[idx % COLOR_PALETTE.length] }}
                         ></span>
-                        <span className="font-semibold text-gray-700 truncate max-w-[120px]">
+                        <span className="font-medium text-gray-700 truncate max-w-[120px]">
                           {item.facility}
                         </span>
                       </div>
                       <div className="text-right font-mono">
-                        <span className="font-bold text-gray-900">₦{item.revenue.toLocaleString()}</span>
+                        <span className="font-medium text-gray-900">₦{item.revenue.toLocaleString()}</span>
                         <span className="text-gray-400 text-[10px] ml-1">({item.percentage}%)</span>
                       </div>
                     </div>
@@ -491,7 +521,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
             {/* Expense Category Breakdown */}
             <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs space-y-4">
               <div>
-                <h3 className="font-heading font-bold text-gray-900 text-base">Expense Category Breakdown</h3>
+                <h3 className="text-base font-semibold text-gray-900">Expense Category Breakdown</h3>
                 <p className="text-xs text-gray-500">Operational costs distribution by category</p>
               </div>
 
@@ -529,10 +559,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
                           className="w-2.5 h-2.5 rounded-full"
                           style={{ backgroundColor: COLOR_PALETTE[(idx + 3) % COLOR_PALETTE.length] }}
                         ></span>
-                        <span className="font-semibold text-gray-700">{item.category}</span>
+                        <span className="font-medium text-gray-700">{item.category}</span>
                       </div>
                       <div className="text-right font-mono">
-                        <span className="font-bold text-gray-900">₦{item.amount.toLocaleString()}</span>
+                        <span className="font-medium text-gray-900">₦{item.amount.toLocaleString()}</span>
                         <span className="text-gray-400 text-[10px] ml-1">({item.percentage}%)</span>
                       </div>
                     </div>
@@ -548,17 +578,17 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
             <div className="bg-white border border-gray-200/80 rounded-2xl shadow-2xs overflow-hidden">
               <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                 <div>
-                  <h3 className="font-heading font-bold text-gray-900 text-sm">Top Revenue Facilities</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Top Revenue Facilities</h3>
                   <p className="text-xs text-gray-500">Ranked by overall booking financial yield</p>
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
+                <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
                   {analytics.topFacilities.length} Facilities
                 </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                    <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] font-medium text-gray-500 uppercase tracking-wider">
                       <th className="py-3 px-4">Facility Name</th>
                       <th className="py-3 px-4 text-center">Bookings Count</th>
                       <th className="py-3 px-4 text-right">Total Revenue</th>
@@ -567,9 +597,9 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
                   <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
                     {analytics.topFacilities.map((tf) => (
                       <tr key={tf.facility} className="hover:bg-gray-50/80 transition-colors">
-                        <td className="py-3 px-4 font-bold text-gray-900">{tf.facility}</td>
-                        <td className="py-3 px-4 text-center font-medium">{tf.bookingsCount}</td>
-                        <td className="py-3 px-4 text-right font-heading font-bold text-emerald-600">
+                        <td className="py-3 px-4 font-medium text-gray-900">{tf.facility}</td>
+                        <td className="py-3 px-4 text-center font-normal">{tf.bookingsCount}</td>
+                        <td className="py-3 px-4 text-right font-semibold text-emerald-600">
                           ₦{tf.revenue.toLocaleString()}
                         </td>
                       </tr>
@@ -579,21 +609,21 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
               </div>
             </div>
 
-            {/* Expense Items Breakdown Table (Replaces Top Expense Categories) */}
+            {/* Expense Items Breakdown Table */}
             <div className="bg-white border border-gray-200/80 rounded-2xl shadow-2xs overflow-hidden">
               <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                 <div>
-                  <h3 className="font-heading font-bold text-gray-900 text-sm">Top Expense Items</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Top Expense Items</h3>
                   <p className="text-xs text-gray-500">Operational expense entries for the selected period</p>
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold border border-red-100">
+                <span className="px-2.5 py-1 rounded-full bg-red-50 text-red-700 text-xs font-medium">
                   {(analytics.expenseItems || []).length} Expense Entries
                 </span>
               </div>
               <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10">
+                    <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-50 z-10">
                       <th className="py-3 px-4">Expense Name</th>
                       <th className="py-3 px-4">Category</th>
                       <th className="py-3 px-4 text-right">Amount</th>
@@ -602,13 +632,13 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
                   <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
                     {(analytics.expenseItems || []).map((exp) => (
                       <tr key={exp.id} className="hover:bg-gray-50/80 transition-colors">
-                        <td className="py-3 px-4 font-bold text-gray-900">{exp.name}</td>
+                        <td className="py-3 px-4 font-normal text-gray-900">{exp.name}</td>
                         <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[11px] font-medium border border-gray-200">
+                          <span className="px-2.5 py-0.5 rounded-lg bg-gray-100 text-gray-700 text-[11px] font-medium">
                             {exp.category}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right font-heading font-bold text-red-600">
+                        <td className="py-3 px-4 text-right font-semibold text-red-600">
                           ₦{exp.amount.toLocaleString()}
                         </td>
                       </tr>

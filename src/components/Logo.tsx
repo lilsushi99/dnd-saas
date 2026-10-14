@@ -52,11 +52,11 @@ export const Logo: React.FC<LogoProps> = ({
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
             <span
-              className={`font-heading font-bold tracking-tight text-gray-900 ${textSizes[size]}`}
+              className={`font-semibold tracking-tight text-gray-900 ${textSizes[size]}`}
             >
               Nexus
             </span>
-            <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 tracking-wider uppercase border border-blue-100">
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 tracking-wider uppercase">
               ERP
             </span>
           </div>

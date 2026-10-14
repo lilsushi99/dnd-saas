@@ -11,6 +11,7 @@ export function useFinanceReports(initialBranch: string = 'all') {
   const [period, setPeriod] = useState<'today' | 'last_7_days' | 'this_month' | 'custom' | 'full_year'>('this_month');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [customDates, setCustomDates] = useState<string[]>([]);
   const [branch, setBranch] = useState(initialBranch);
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export function useFinanceReports(initialBranch: string = 'all') {
         period,
         startDate: period === 'custom' ? startDate : undefined,
         endDate: period === 'custom' ? endDate : undefined,
+        customDates: period === 'custom' ? customDates : undefined,
         branch,
       };
       const data = await FinanceApiService.fetchAnalytics(filters);
@@ -34,7 +36,7 @@ export function useFinanceReports(initialBranch: string = 'all') {
     } finally {
       setLoading(false);
     }
-  }, [period, startDate, endDate, branch]);
+  }, [period, startDate, endDate, customDates, branch]);
 
   useEffect(() => {
     loadAnalytics();
@@ -50,6 +52,8 @@ export function useFinanceReports(initialBranch: string = 'all') {
     setStartDate,
     endDate,
     setEndDate,
+    customDates,
+    setCustomDates,
     branch,
     setBranch,
     refresh: loadAnalytics,

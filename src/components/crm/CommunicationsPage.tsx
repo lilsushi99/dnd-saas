@@ -103,12 +103,12 @@ export const CommunicationsPage: React.FC = () => {
       <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium">
               <i className="fa-solid fa-clock text-[9px] mr-1"></i>
               Coming Soon
             </span>
           </div>
-          <h1 className="font-heading text-2xl font-bold text-gray-900 tracking-tight mt-2">
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight mt-2">
             Customer Communications Centre
           </h1>
           <p className="text-xs text-gray-500 mt-1 max-w-2xl">
@@ -126,10 +126,10 @@ export const CommunicationsPage: React.FC = () => {
           >
             {/* Top Badge Overlay */}
             <div className="flex items-center justify-between mb-4">
-              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-lg border ${mod.iconBg}`}>
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-lg ${mod.iconBg}`}>
                 <i className={mod.icon}></i>
               </div>
-              <span className="px-2.5 py-1 bg-gray-100 text-gray-600 border border-gray-200 rounded-full text-[10px] font-bold tracking-wide uppercase">
+              <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-[10px] font-medium tracking-wide uppercase">
                 Coming Soon
               </span>
             </div>
@@ -137,7 +137,7 @@ export const CommunicationsPage: React.FC = () => {
             {/* Content */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <h3 className="font-heading text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                   {mod.title}
                 </h3>
               </div>
@@ -147,7 +147,7 @@ export const CommunicationsPage: React.FC = () => {
 
               {/* Feature Checklist */}
               <div className="pt-3 border-t border-gray-100 space-y-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400 block mb-1">
                   Planned Architecture Capabilities
                 </span>
                 {mod.features.map((f, idx) => (
@@ -167,7 +167,7 @@ export const CommunicationsPage: React.FC = () => {
               </span>
               <button
                 onClick={() => showNotification(mod.title)}
-                className="px-3 py-1.5 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-600 border border-gray-200 hover:border-blue-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-600 border border-gray-200 hover:border-blue-200 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <span>Configure</span>
                 <i className="fa-solid fa-chevron-right text-[9px]"></i>
@@ -182,7 +182,7 @@ export const CommunicationsPage: React.FC = () => {
             <div className="w-11 h-11 rounded-2xl bg-white/10 text-blue-300 border border-white/10 flex items-center justify-center text-lg mb-4">
               <i className="fa-solid fa-microchip"></i>
             </div>
-            <h3 className="font-heading text-base font-bold text-white mb-2">
+            <h3 className="text-base font-semibold text-white mb-2">
               Future API Integration Roadmap
             </h3>
             <p className="text-xs text-slate-300 leading-relaxed mb-4">

@@ -60,11 +60,11 @@ export const BranchModal: React.FC<BranchModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
               <i className="fa-solid fa-code-branch text-base"></i>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 font-heading">
+              <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
                 {initialData ? 'Edit Branch' : 'Create New Branch'}
               </h3>
               <p className="text-xs text-gray-500 font-sans">
@@ -131,8 +131,7 @@ export const BranchModal: React.FC<BranchModalProps> = ({
                   onChange={() => setStatus('Active')}
                   className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                 />
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
                   Active
                 </span>
               </label>
@@ -145,8 +144,7 @@ export const BranchModal: React.FC<BranchModalProps> = ({
                   onChange={() => setStatus('Inactive')}
                   className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                 />
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                   Inactive
                 </span>
               </label>

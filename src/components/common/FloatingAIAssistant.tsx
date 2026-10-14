@@ -360,7 +360,7 @@ export const FloatingAIAssistant: React.FC<FloatingAIAssistantProps> = ({
           </div>
 
           {/* RIGHT: Text "Ask Tosin" */}
-          <span className="text-xs font-bold tracking-wide text-white pr-1">
+          <span className="text-xs font-medium tracking-wide text-white pr-1">
             Ask Tosin
           </span>
         </button>
@@ -376,7 +376,7 @@ export const FloatingAIAssistant: React.FC<FloatingAIAssistantProps> = ({
                 <BeeIcon className="w-4.5 h-4.5 text-blue-600" />
               </div>
               <div>
-                <h3 className="font-heading text-xs font-bold text-white leading-tight flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-white leading-tight flex items-center gap-1.5">
                   Ask Tosin
                   <span className="px-1.5 py-0.2 rounded bg-white/20 text-white text-[9px] font-mono border border-white/30">
                     Gemini AI
@@ -398,7 +398,7 @@ export const FloatingAIAssistant: React.FC<FloatingAIAssistantProps> = ({
                 }}
                 className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                   isVoiceMode
-                    ? 'bg-white text-blue-600 font-bold'
+                    ? 'bg-white text-blue-600 font-medium'
                     : 'text-blue-100 hover:text-white hover:bg-white/10'
                 }`}
                 title="Toggle Voice Mode ('Talk to Tosin')"
@@ -460,7 +460,7 @@ export const FloatingAIAssistant: React.FC<FloatingAIAssistantProps> = ({
                   ></i>
                 </div>
                 <div>
-                  <div className="text-[11px] font-bold font-heading">
+                  <div className="text-[11px] font-semibold">
                     {isListening ? 'Push-to-Talk Recording...' : isSpeaking ? 'Tosin Speaking...' : 'Voice Mode Enabled'}
                   </div>
                   <div className="text-[9px] text-blue-200">
@@ -523,11 +523,11 @@ export const FloatingAIAssistant: React.FC<FloatingAIAssistantProps> = ({
                         remarkPlugins={[remarkGfm]}
                         components={{
                           p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
-                          strong: ({ children }) => <strong className="font-bold text-gray-900">{children}</strong>,
+                          strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
                           em: ({ children }) => <em className="italic">{children}</em>,
-                          h1: ({ children }) => <h1 className="font-bold text-sm text-gray-900 my-1">{children}</h1>,
-                          h2: ({ children }) => <h2 className="font-bold text-xs text-gray-900 my-1">{children}</h2>,
-                          h3: ({ children }) => <h3 className="font-bold text-xs text-gray-900 my-1">{children}</h3>,
+                          h1: ({ children }) => <h1 className="font-semibold text-sm text-gray-900 my-1">{children}</h1>,
+                          h2: ({ children }) => <h2 className="font-semibold text-xs text-gray-900 my-1">{children}</h2>,
+                          h3: ({ children }) => <h3 className="font-semibold text-xs text-gray-900 my-1">{children}</h3>,
                           ul: ({ children }) => <ul className="list-disc pl-4 space-y-0.5 my-1.5">{children}</ul>,
                           ol: ({ children }) => <ol className="list-decimal pl-4 space-y-0.5 my-1.5">{children}</ol>,
                           li: ({ children }) => <li className="leading-snug">{children}</li>,
@@ -535,7 +535,7 @@ export const FloatingAIAssistant: React.FC<FloatingAIAssistantProps> = ({
                           pre: ({ children }) => <pre className="bg-slate-900 text-slate-100 p-2 rounded-lg my-1.5 overflow-x-auto text-[10px] font-mono">{children}</pre>,
                           blockquote: ({ children }) => <blockquote className="border-l-2 border-blue-500 pl-2 text-gray-600 italic my-1">{children}</blockquote>,
                           table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-left border-collapse text-[10px]">{children}</table></div>,
-                          th: ({ children }) => <th className="bg-gray-100 p-1 font-bold border border-gray-200">{children}</th>,
+                          th: ({ children }) => <th className="bg-gray-100 p-1 font-medium border border-gray-200">{children}</th>,
                           td: ({ children }) => <td className="p-1 border border-gray-200">{children}</td>,
                         }}
                       >

@@ -75,7 +75,7 @@ export function useOperations(branchFilter: string = 'all') {
       await loadData();
       return created;
     } catch (err: any) {
-      alert(`Error creating booking: ${err.message}`);
+      console.error('Error creating booking:', err.message);
       throw err;
     }
   };
@@ -86,7 +86,7 @@ export function useOperations(branchFilter: string = 'all') {
       await loadData();
       return updated;
     } catch (err: any) {
-      alert(`Error updating booking: ${err.message}`);
+      console.error('Error updating booking:', err.message);
       throw err;
     }
   };

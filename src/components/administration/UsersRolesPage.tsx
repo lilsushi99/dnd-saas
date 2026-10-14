@@ -3,6 +3,21 @@ import { useUsersRoles, useBranches } from '../../hooks/useAdmin';
 import { AdminUser } from '../../types';
 import { UserModal } from './UserModal';
 import { RoleMatrixModal } from './RoleMatrixModal';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
+
+const roleFilterOptions: SelectOption[] = [
+  { id: 'all', label: 'All Roles' },
+  { id: 'Director', label: 'Director' },
+  { id: 'Manager', label: 'Manager' },
+  { id: 'Receptionist', label: 'Receptionist' },
+  { id: 'Accountant', label: 'Accountant' },
+];
+
+const statusFilterOptions: SelectOption[] = [
+  { id: 'all', label: 'All Statuses' },
+  { id: 'Active', label: 'Active' },
+  { id: 'Inactive', label: 'Inactive' },
+];
 
 export const UsersRolesPage: React.FC = () => {
   const { users, rolesPermissions, loading, error, createUser, updateUser, toggleUserStatus, updateRolePermissions } = useUsersRoles();
@@ -54,15 +69,15 @@ export const UsersRolesPage: React.FC = () => {
   const getRoleBadgeStyle = (role: string) => {
     switch (role) {
       case 'Director':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
+        return 'bg-purple-50 text-purple-700';
       case 'Manager':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-blue-50 text-blue-700';
       case 'Accountant':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        return 'bg-emerald-50 text-emerald-700';
       case 'Receptionist':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-amber-50 text-amber-700';
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        return 'bg-gray-100 text-gray-700';
     }
   };
 
@@ -71,8 +86,8 @@ export const UsersRolesPage: React.FC = () => {
       {/* Top Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 border border-gray-200/80 rounded-2xl shadow-2xs">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 font-heading flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+          <h1 className="text-xl font-semibold text-gray-900 tracking-tight flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
               <i className="fa-solid fa-users-gear text-sm"></i>
             </span>
             Users & Roles Administration
@@ -85,14 +100,14 @@ export const UsersRolesPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsMatrixModalOpen(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded-xl transition-colors cursor-pointer shadow-2xs"
           >
             <i className="fa-solid fa-key text-xs text-amber-600"></i>
             Permission Matrix
           </button>
           <button
             onClick={handleOpenCreateUser}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             <i className="fa-solid fa-user-plus text-xs"></i>
             Create User
@@ -107,12 +122,12 @@ export const UsersRolesPage: React.FC = () => {
           return (
             <div key={roleName} className="bg-white p-4 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
               <div>
-                <span className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded border uppercase tracking-wider mb-1 ${getRoleBadgeStyle(roleName)}`}>
+                <span className={`inline-block px-2 py-0.5 text-[10px] font-medium rounded uppercase tracking-wider mb-1 ${getRoleBadgeStyle(roleName)}`}>
                   {roleName}
                 </span>
-                <p className="text-xl font-bold text-gray-900 font-heading">{count} Users</p>
+                <p className="text-xl font-semibold text-gray-900">{count} Users</p>
               </div>
-              <div className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 text-xs">
+              <div className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 text-xs">
                 <i className="fa-solid fa-user-shield"></i>
               </div>
             </div>
@@ -134,32 +149,22 @@ export const UsersRolesPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-gray-500">Filter Role:</span>
-            <select
+          <div className="w-40">
+            <CustomSelect
+              options={roleFilterOptions}
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:bg-white focus:border-amber-500 transition-all cursor-pointer"
-            >
-              <option value="all">All Roles</option>
-              <option value="Director">Director</option>
-              <option value="Manager">Manager</option>
-              <option value="Receptionist">Receptionist</option>
-              <option value="Accountant">Accountant</option>
-            </select>
+              onChange={(val) => setRoleFilter(val)}
+              icon="fa-solid fa-user-shield"
+            />
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-gray-500">Status:</span>
-            <select
+          <div className="w-36">
+            <CustomSelect
+              options={statusFilterOptions}
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:bg-white focus:border-amber-500 transition-all cursor-pointer"
-            >
-              <option value="all">All Statuses</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+              onChange={(val) => setStatusFilter(val as any)}
+              icon="fa-solid fa-filter"
+            />
           </div>
         </div>
       </div>
@@ -196,19 +201,19 @@ export const UsersRolesPage: React.FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-gray-900 font-heading">
+                    <td className="px-6 py-4 text-gray-900">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-white font-bold flex items-center justify-center text-xs shadow-2xs">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-white font-semibold flex items-center justify-center text-xs shadow-2xs">
                           {user.name.split(' ').map((n) => n[0]).join('')}
                         </div>
                         <div>
-                          <div className="text-sm font-semibold text-gray-900">{user.name}</div>
+                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
                           <div className="text-xs text-gray-400 font-normal font-sans">{user.email}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${getRoleBadgeStyle(user.role)}`}>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${getRoleBadgeStyle(user.role)}`}>
                         {user.role}
                       </span>
                     </td>
@@ -218,13 +223,11 @@ export const UsersRolesPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       {user.status === 'Active' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700">
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600">
                           Inactive
                         </span>
                       )}

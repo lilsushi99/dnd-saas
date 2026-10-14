@@ -17,7 +17,15 @@ interface SidebarMenuItem {
   iconClass: string;
   badge?: string;
   badgeType?: 'primary' | 'warning' | 'gray';
-  subItems?: { id: string; label: string; iconClass: string }[];
+  disabled?: boolean;
+  subItems?: {
+    id: string;
+    label: string;
+    iconClass: string;
+    badge?: string;
+    badgeType?: 'primary' | 'warning' | 'gray';
+    disabled?: boolean;
+  }[];
 }
 
 export const sidebarNavigation: { title?: string; items: SidebarMenuItem[] }[] = [
@@ -45,7 +53,14 @@ export const sidebarNavigation: { title?: string; items: SidebarMenuItem[] }[] =
         badgeType: 'primary',
         subItems: [
           { id: 'crm', label: 'CRM', iconClass: 'fa-solid fa-address-book' },
-          { id: 'communications', label: 'Communications', iconClass: 'fa-solid fa-comments' },
+          {
+            id: 'communications',
+            label: 'Communications',
+            iconClass: 'fa-solid fa-comments',
+            badge: 'Coming Soon',
+            badgeType: 'gray',
+            disabled: true,
+          },
         ],
       },
       {
@@ -162,9 +177,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onCloseMobile();
                     }
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer relative group ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer relative group ${
                     isActive
-                      ? 'bg-blue-50/80 text-blue-700 font-bold'
+                      ? 'bg-blue-50/80 text-blue-700 font-semibold'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
@@ -183,14 +198,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     >
                       <i className={item.iconClass}></i>
                     </div>
-                    <span className="truncate font-sans">{item.label}</span>
+                    <span className="truncate">{item.label}</span>
                   </div>
 
                   {/* Badge or Chevron */}
                   <div className="flex items-center gap-2">
                     {item.badge && (
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight ${
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium tracking-tight ${
                           item.badgeType === 'gray'
                             ? 'bg-gray-100 text-gray-500 font-medium'
                             : isActive
@@ -217,28 +232,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div className="ml-5 pl-3 border-l border-gray-200/80 space-y-1 py-1">
                     {item.subItems?.map((sub) => {
                       const isSubActive = activeNavItem === sub.id;
+                      const isLocked = Boolean(sub.disabled || sub.badge === 'Coming Soon');
                       return (
                         <button
                           key={sub.id}
+                          disabled={isLocked}
                           onClick={() => {
+                            if (isLocked) return;
                             onSelectNavItem(sub.id);
                             onCloseMobile();
                           }}
-                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer relative ${
-                            isSubActive
-                              ? 'bg-blue-50/80 text-blue-700 font-bold'
-                              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                          className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-all relative ${
+                            isLocked
+                              ? 'text-gray-400 opacity-60 cursor-not-allowed select-none'
+                              : isSubActive
+                              ? 'bg-blue-50/80 text-blue-700 font-semibold cursor-pointer'
+                              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 cursor-pointer'
                           }`}
                         >
-                          {isSubActive && (
-                            <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-blue-600 rounded-r-full" />
+                          <div className="flex items-center gap-2.5 min-w-0 truncate">
+                            {isSubActive && !isLocked && (
+                              <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-blue-600 rounded-r-full" />
+                            )}
+                            <i
+                              className={`${sub.iconClass} text-[11px] ${
+                                isLocked ? 'text-gray-300' : isSubActive ? 'text-blue-600' : 'text-gray-400'
+                              }`}
+                            ></i>
+                            <span className="truncate">{sub.label}</span>
+                          </div>
+
+                          {sub.badge && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-400 tracking-tight shrink-0">
+                              {sub.badge}
+                            </span>
                           )}
-                          <i
-                            className={`${sub.iconClass} text-[11px] ${
-                              isSubActive ? 'text-blue-600' : 'text-gray-400'
-                            }`}
-                          ></i>
-                          <span className="truncate font-sans">{sub.label}</span>
                         </button>
                       );
                     })}
@@ -254,7 +282,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-white border border-gray-200/70 shadow-2xs">
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative shrink-0">
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-heading font-bold flex items-center justify-center text-xs shadow-xs">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-semibold flex items-center justify-center text-xs shadow-xs">
                   {user.name
                     .split(' ')
                     .map((n) => n[0])
@@ -264,10 +292,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-white"></div>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-gray-900 truncate font-heading">
+                <div className="text-xs font-semibold text-gray-900 truncate">
                   {user.name}
                 </div>
-                <div className="text-[10px] text-gray-500 truncate font-sans">
+                <div className="text-[10px] text-gray-500 truncate">
                   {user.role}
                 </div>
               </div>
