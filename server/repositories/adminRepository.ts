@@ -18,7 +18,7 @@ export class AdminRepository {
       }));
     } catch (err) {
       console.error('Error fetching branches:', err);
-      return [];
+      throw err;
     }
   }
 
@@ -108,7 +108,7 @@ export class AdminRepository {
       }));
     } catch (err) {
       console.error('Error fetching facilities:', err);
-      return [];
+      throw err;
     }
   }
 
@@ -226,7 +226,7 @@ export class AdminRepository {
       }));
     } catch (err) {
       console.error('Error fetching users:', err);
-      return [];
+      throw err;
     }
   }
 
@@ -322,7 +322,7 @@ export class AdminRepository {
       });
     } catch (err) {
       console.error('Error fetching roles permissions:', err);
-      return [];
+      throw err;
     }
   }
 

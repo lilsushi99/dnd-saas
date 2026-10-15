@@ -1,15 +1,9 @@
+import { apiRequest } from './http';
 import { Branch, Facility, AdminUser, RolePermission, ColumnMappingItem, ValidationErrorItem, ImportSpreadsheetRow, ImportResultSummary } from '../types';
 
 export class AdminApiService {
   private static async request<T>(url: string, options?: RequestInit): Promise<T> {
-    const res = await fetch(url, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.message || 'API Request failed');
-    }
+    const data = await apiRequest<{ data: T }>(url, options);
     return data.data;
   }
 
@@ -131,9 +125,8 @@ export class AdminApiService {
       reader.onload = async () => {
         try {
           const base64Data = reader.result as string;
-          const res = await fetch('/api/admin/upload', {
+          const data = await apiRequest<{ data: { url: string; fileName: string } }>('/api/admin/upload', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               fileName: file.name,
               fileType: file.type,
@@ -142,10 +135,6 @@ export class AdminApiService {
               fileData: base64Data,
             }),
           });
-          const data = await res.json();
-          if (!res.ok || !data.success) {
-            throw new Error(data.message || 'File upload failed');
-          }
           resolve({ url: data.data.url, fileName: data.data.fileName });
         } catch (err) {
           reject(err);

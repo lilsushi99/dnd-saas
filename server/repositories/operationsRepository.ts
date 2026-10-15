@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { randomBytes } from 'crypto';
 import path from 'path';
 import { Booking, ClientSuggestion, SystemSettings, FacilityRecordSummary } from '../../src/types';
 import config from '../config/config';
@@ -112,10 +113,10 @@ export class OperationsRepository {
 
       const rows = await executeQuery<any>(sql, params);
       return rows.map((r) => {
-        let statusVal: 'Active' | 'Expired' | 'Upcoming' = 'Active';
-        if (r.status === 'Expired') statusVal = 'Expired';
-        else if (r.status === 'Upcoming') statusVal = 'Upcoming';
-        else statusVal = 'Active';
+        // Preserve the stored status. (Previously 'Cancelled' was silently rewritten to 'Active',
+        // so cancelled bookings were counted as live revenue everywhere.)
+        const KNOWN = ['Active', 'Expired', 'Upcoming', 'Cancelled'] as const;
+        const statusVal = (KNOWN as readonly string[]).includes(r.status) ? (r.status as (typeof KNOWN)[number]) : 'Active';
 
         return {
           id: r.id,
@@ -138,7 +139,7 @@ export class OperationsRepository {
       });
     } catch (err) {
       console.error('Error fetching bookings:', err);
-      return [];
+      throw err;
     }
   }
 
@@ -179,6 +180,7 @@ export class OperationsRepository {
       }
     } catch (err) {
       console.error('Error fetching business settings:', err);
+      throw err;
     }
     return {
       businessName: '',
@@ -326,6 +328,7 @@ export class OperationsRepository {
       }
     } catch (err) {
       console.error('Error fetching profile settings:', err);
+      throw err;
     }
     return {
       profileName: '',
@@ -481,12 +484,12 @@ export class OperationsRepository {
         ]
       );
 
-      const payRef = `REF-${Date.now().toString().slice(-8)}`;
+      const payRef = `REF-${randomBytes(6).toString('hex').toUpperCase()}`;
       await conn.execute(
         `INSERT INTO payments (id, reference, booking_id, client_id, amount, payment_method, payment_date, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'Completed')`,
         [
-          `PAY-${Date.now().toString().slice(-6)}`,
+          `PAY-${randomBytes(6).toString('hex').toUpperCase()}`,
           payRef,
           newBooking.id,
           newBooking.clientId,
@@ -585,7 +588,7 @@ export class OperationsRepository {
       return list;
     } catch (err) {
       console.error('Error fetching clients:', err);
-      return [];
+      throw err;
     }
   }
 
@@ -722,7 +725,7 @@ export class OperationsRepository {
       });
     } catch (err) {
       console.error('Error in getFacilityRecords:', err);
-      return [];
+      throw err;
     }
   }
 }

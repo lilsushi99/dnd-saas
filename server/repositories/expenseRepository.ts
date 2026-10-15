@@ -42,7 +42,7 @@ export class ExpenseRepository {
       }));
     } catch (err) {
       console.error('Error fetching expense categories:', err);
-      return [];
+      throw err;
     }
   }
 
@@ -213,7 +213,7 @@ export class ExpenseRepository {
       return list;
     } catch (err) {
       console.error('Error fetching expenses:', err);
-      return [];
+      throw err;
     }
   }
 

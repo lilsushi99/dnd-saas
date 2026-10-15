@@ -1,348 +1,191 @@
 import { ExpenseRepository } from '../repositories/expenseRepository';
 import { OperationsRepository } from '../repositories/operationsRepository';
 import { AdminRepository } from '../repositories/adminRepository';
-import { FinanceReportFilters, FinanceAnalyticsSummary, Expense } from '../../src/types';
+import { executeQuery } from '../database/db';
+import { FinanceReportFilters, FinanceAnalyticsSummary } from '../../src/types';
+import {
+  addDays, bookingOccupiesOn, DateRange, expenseCentsForView, fromCents, inRange, isQualifyingBooking,
+  isQualifyingExpense, occupancyPercent, profitMargin, recordBelongsToBranch, resolveBranch,
+  resolveDateRange, todayInTimezone, toCents, BranchRef,
+} from '../domain/businessRules';
+
+export interface BranchPerformance {
+  branchId: string;
+  branch: string;
+  revenue: number;
+  expenses: number;
+  netProfit: number;
+  profitMargin: number;
+}
+
+export type AnalyticsResult = FinanceAnalyticsSummary & {
+  dateRange: DateRange;
+  branchPerformance: BranchPerformance[];
+};
+
+const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : 0);
 
 export class FinanceService {
-  private opsRepo: OperationsRepository;
-  private adminRepo: AdminRepository;
+  private opsRepo = new OperationsRepository();
+  private adminRepo = new AdminRepository();
 
-  constructor(private expenseRepo: ExpenseRepository) {
-    this.opsRepo = new OperationsRepository();
-    this.adminRepo = new AdminRepository();
+  constructor(private expenseRepo: ExpenseRepository) {}
+
+  private async getBusinessTimezone(): Promise<string> {
+    const rows = await executeQuery<any>(`SELECT timezone FROM business_settings WHERE id = 1 LIMIT 1`);
+    return rows[0]?.timezone || 'UTC';
   }
 
-  public async getFinanceAnalytics(filters?: FinanceReportFilters): Promise<FinanceAnalyticsSummary> {
-    const todayStr = new Date().toISOString().substring(0, 10);
-    const period = filters?.period || 'this_month';
-    const selectedBranch = filters?.branch || 'all';
-
-    const allBookings = await this.opsRepo.getAllBookings();
-    const allExpenses = await this.expenseRepo.getAllExpenses();
-    const branches = await this.adminRepo.getBranches();
-
-    // Resolve branch filtering search terms (ID or Name)
-    let branchSearchTerms: string[] = [];
-    if (selectedBranch && selectedBranch !== 'all' && selectedBranch !== 'compare') {
-      const sLower = selectedBranch.toLowerCase();
-      branchSearchTerms.push(sLower);
-      const matched = branches.find(
-        (b) => b.id.toLowerCase() === sLower || b.name.toLowerCase() === sLower
-      );
-      if (matched) {
-        branchSearchTerms.push(matched.id.toLowerCase());
-        branchSearchTerms.push(matched.name.toLowerCase());
-      }
-    }
-
-    // Smart date period determination
-    let targetMonthStr = todayStr.substring(0, 7);
-    if (period === 'this_month') {
-      const currentMonthBookings = allBookings.filter((b) => b.date.startsWith(targetMonthStr));
-      const currentMonthExpenses = allExpenses.filter((e) => e.date.startsWith(targetMonthStr));
-      if (currentMonthBookings.length === 0 && currentMonthExpenses.length === 0) {
-        // Fallback to the latest available month in DB so default landing page isn't zeroed
-        const dates = [...allBookings.map((b) => b.date), ...allExpenses.map((e) => e.date)].sort().reverse();
-        if (dates.length > 0) {
-          targetMonthStr = dates[0].substring(0, 7);
-        }
-      }
-    }
-
-    const isDateInPeriod = (dateStr: string): boolean => {
-      const p = String(period);
-      if (p === 'today') {
-        return dateStr === todayStr;
-      }
-      if (p === 'last_7_days' || p === '7D' || p === 'last_7') {
-        const d = new Date(todayStr);
-        d.setDate(d.getDate() - 7);
-        const sevenDaysAgo = d.toISOString().substring(0, 10);
-        return dateStr >= sevenDaysAgo && dateStr <= todayStr;
-      }
-      if (p === 'this_month') {
-        return dateStr.startsWith(targetMonthStr);
-      }
-      if (p === '30D' || p === 'last_30_days' || p === 'last_30') {
-        const d = new Date(todayStr);
-        d.setDate(d.getDate() - 30);
-        const thirtyDaysAgo = d.toISOString().substring(0, 10);
-        return dateStr >= thirtyDaysAgo && dateStr <= todayStr;
-      }
-      if (p === 'full_year' || p === '12M' || p === 'last_12_months' || p === 'all') {
-        return true;
-      }
-      if (p === 'custom') {
-        if (filters?.customDates && filters.customDates.length > 0) {
-          return filters.customDates.includes(dateStr);
-        }
-        if (filters?.startDate && filters?.endDate) {
-          return dateStr >= filters.startDate && dateStr <= filters.endDate;
-        }
-        if (filters?.startDate) {
-          return dateStr === filters.startDate;
-        }
-        return true;
-      }
-      return true;
-    };
-
-    let filteredBookings = allBookings.filter((b) => isDateInPeriod(b.date));
-
-    if (branchSearchTerms.length > 0) {
-      filteredBookings = filteredBookings.filter((b) => {
-        const bName = b.branch.toLowerCase();
-        return branchSearchTerms.some((term) => bName.includes(term) || term.includes(bName));
-      });
-    }
-
-    const totalRevenue = filteredBookings.reduce((sum, b) => sum + Number(b.amount || 0), 0);
-    const totalBookings = filteredBookings.length;
-    const uniqueClientsSet = new Set(filteredBookings.map((b) => b.clientId || b.clientName));
-    const uniqueClients = uniqueClientsSet.size;
-    const averageBookingValue = totalBookings > 0 ? Math.round(totalRevenue / totalBookings) : 0;
-
-    // Calculate real occupancy rate from total active bookings and total capacity
-    const allFacilities = await this.adminRepo.getFacilities();
-    let relevantFacilities = allFacilities;
-    if (branchSearchTerms.length > 0) {
-      relevantFacilities = allFacilities.filter((f) => {
-        const fBranchName = (f.branchName || '').toLowerCase();
-        const fBranchId = (f.branchId || '').toLowerCase();
-        return branchSearchTerms.some(
-          (term) => fBranchName.includes(term) || term.includes(fBranchName) || fBranchId === term
-        );
-      });
-    }
-    const totalCapacity = relevantFacilities.reduce((sum, f) => sum + (f.capacity || 0), 0);
-    const activeBookingsCount = allBookings.filter((b) => {
-      if (b.status !== 'Active') return false;
-      if (branchSearchTerms.length > 0) {
-        const bName = b.branch.toLowerCase();
-        return branchSearchTerms.some((term) => bName.includes(term) || term.includes(bName));
-      }
-      return true;
-    }).length;
-    const occupancyRate = totalCapacity > 0 ? Number(((activeBookingsCount / totalCapacity) * 100).toFixed(1)) : 0;
-
-    let filteredExpenses = allExpenses.filter((e) => isDateInPeriod(e.date));
-
-    const getEffectiveExpenseAmount = (e: Expense): number => {
-      const amt = Number(e.amount || 0);
-      if (
-        branchSearchTerms.length > 0 &&
-        (e.branch.toLowerCase() === 'both branches' || e.branch.toLowerCase() === 'all branches')
-      ) {
-        return amt / 2;
-      }
-      return amt;
-    };
-
-    if (branchSearchTerms.length > 0) {
-      filteredExpenses = filteredExpenses.filter((e) => {
-        const eBranch = e.branch.toLowerCase();
-        if (eBranch === 'both branches' || eBranch === 'all branches') {
-          return true;
-        }
-        return branchSearchTerms.some((term) => eBranch.includes(term) || term.includes(eBranch));
-      });
-    }
-
-    const totalExpenses = filteredExpenses.reduce(
-      (sum, e) => sum + getEffectiveExpenseAmount(e),
-      0
-    );
-
-    const netProfit = totalRevenue - totalExpenses;
-    const netProfitMargin =
-      totalRevenue > 0 ? Math.round(((totalRevenue - totalExpenses) / totalRevenue) * 100) : 0;
-
-    const dateMap = new Map<string, { revenue: number; expenses: number; branchRevenues: Record<string, number> }>();
-
-    // Build unique dates list from available records or selected period
-    const allDatesSet = new Set<string>([
-      ...filteredBookings.map((b) => b.date),
-      ...filteredExpenses.map((e) => e.date),
+  /**
+   * All figures come from the shared rules in server/domain/businessRules.ts.
+   * Errors (bad branch, bad custom range, DB failure) propagate; nothing is defaulted to "looks fine" data.
+   */
+  public async getFinanceAnalytics(filters?: FinanceReportFilters, nowOverride?: Date): Promise<AnalyticsResult> {
+    const [allBookings, allExpenses, allBranches, allFacilities, tz] = await Promise.all([
+      this.opsRepo.getAllBookings(),
+      this.expenseRepo.getAllExpenses(),
+      this.adminRepo.getBranches(),
+      this.adminRepo.getFacilities(),
+      this.getBusinessTimezone(),
     ]);
 
-    const periodStr = String(period);
-    if (periodStr === 'last_7_days' || periodStr === '7D') {
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(todayStr);
-        d.setDate(d.getDate() - i);
-        allDatesSet.add(d.toISOString().slice(0, 10));
-      }
-    } else if (period === 'this_month') {
-      for (let i = 1; i <= 31; i++) {
-        const dayStr = i.toString().padStart(2, '0');
-        allDatesSet.add(`${targetMonthStr}-${dayStr}`);
-      }
-    } else if (period === 'custom' && filters?.customDates && filters.customDates.length > 0) {
-      for (const cd of filters.customDates) {
-        allDatesSet.add(cd);
-      }
+    const today = todayInTimezone(tz, nowOverride);
+    const range = resolveDateRange(filters?.period || 'all', today, { startDate: filters?.startDate, endDate: filters?.endDate, customDates: filters?.customDates });
+    const branchRefs: BranchRef[] = allBranches.map((b) => ({ id: b.id, name: b.name }));
+    const selected = resolveBranch(filters?.branch, branchRefs);
+    const activeBranchIds = allBranches.filter((b) => b.status === 'Active').map((b) => b.id);
+
+    const bookings = allBookings.filter(
+      (b) => isQualifyingBooking(b.status) && inRange(b.date, range) && (!selected || recordBelongsToBranch({ branch: b.branch }, selected))
+    );
+    const expenses = allExpenses
+      .filter((e) => isQualifyingExpense((e as any).status) && inRange(e.date, range))
+      .map((e) => ({ e, cents: expenseCentsForView(e, selected, activeBranchIds) }))
+      .filter((x) => x.cents !== 0 || !selected);
+
+    const revenueCents = bookings.reduce((s, b) => s + toCents(b.amount), 0);
+    const expenseCents = expenses.reduce((s, x) => s + x.cents, 0);
+    const netCents = revenueCents - expenseCents;
+
+    const totalBookings = bookings.length;
+    const uniqueClients = new Set(bookings.map((b) => b.clientId || `name:${(b.clientName || '').toLowerCase()}`)).size;
+
+    // ---------------------------------------------------------------- occupancy (as of the end of the range, never in the future)
+    const refDate = range.end && range.end < today ? range.end : today;
+    const scopedFacilities = allFacilities.filter(
+      (f) => f.status === 'Active' && (!selected || f.branchId === selected.id || (f.branchName || '').toLowerCase() === selected.name.toLowerCase())
+    );
+    const totalCapacity = scopedFacilities.reduce((s, f) => s + (Number(f.capacity) || 0), 0);
+    const facilityKeys = new Set(scopedFacilities.map((f) => `${(f.branchName || '').toLowerCase()}|${f.name.toLowerCase()}`));
+    const occupied = allBookings.filter(
+      (b) => bookingOccupiesOn(b, refDate) && facilityKeys.has(`${(b.branch || '').toLowerCase()}|${(b.facility || '').toLowerCase()}`)
+    ).length;
+    const occupancyRate = occupancyPercent(Math.min(occupied, totalCapacity), totalCapacity);
+
+    // ---------------------------------------------------------------- time series
+    const spanDays = range.start && range.end ? Math.round((Date.parse(range.end) - Date.parse(range.start)) / 86400000) + 1 : null;
+    const bucketMonthly = !range.dates && (spanDays === null || spanDays > 92);
+    const bucketOf = (d: string) => (bucketMonthly ? `${d.substring(0, 7)}-01` : d.substring(0, 10));
+
+    const series = new Map<string, { revenue: number; expenses: number; branchRevenues: Record<string, number> }>();
+    const touch = (k: string) => {
+      if (!series.has(k)) series.set(k, { revenue: 0, expenses: 0, branchRevenues: {} });
+      return series.get(k)!;
+    };
+    if (range.dates) {
+      range.dates.forEach((d) => touch(d)); // only the dates the user picked
+    } else if (!bucketMonthly && range.start && range.end) {
+      for (let d = range.start; d <= range.end; d = addDays(d, 1)) touch(d); // continuous daily axis
     }
-
-    const datesList = Array.from(allDatesSet).sort();
-
-    for (const d of datesList) {
-      dateMap.set(d, { revenue: 0, expenses: 0, branchRevenues: {} });
+    for (const b of bookings) {
+      const s = touch(bucketOf(b.date));
+      const c = toCents(b.amount);
+      s.revenue += c;
+      s.branchRevenues[b.branch] = (s.branchRevenues[b.branch] || 0) + c;
     }
+    for (const x of expenses) touch(bucketOf(x.e.date)).expenses += x.cents;
 
-    for (const b of filteredBookings) {
-      const bBranch = b.branch || 'General';
-      const amt = Number(b.amount || 0);
-      if (dateMap.has(b.date)) {
-        const entry = dateMap.get(b.date)!;
-        entry.revenue += amt;
-        entry.branchRevenues[bBranch] = (entry.branchRevenues[bBranch] || 0) + amt;
-      } else {
-        dateMap.set(b.date, { revenue: amt, expenses: 0, branchRevenues: { [bBranch]: amt } });
-      }
-    }
-
-    for (const e of filteredExpenses) {
-      const amt = getEffectiveExpenseAmount(e);
-      if (dateMap.has(e.date)) {
-        dateMap.get(e.date)!.expenses += amt;
-      } else {
-        dateMap.set(e.date, { revenue: 0, expenses: amt, branchRevenues: {} });
-      }
-    }
-
-    const revenueVsExpensesChart = Array.from(dateMap.entries())
+    const revenueVsExpensesChart = [...series.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([d, val]) => ({
-        period: d.slice(5),
-        date: d,
-        revenue: val.revenue,
-        expenses: val.expenses,
-        profit: val.revenue - val.expenses,
-        branchRevenues: val.branchRevenues,
+      .map(([date, v]) => ({
+        period: bucketMonthly ? date.slice(0, 7) : date.slice(5),
+        date,
+        revenue: fromCents(v.revenue),
+        expenses: fromCents(v.expenses),
+        profit: fromCents(v.revenue - v.expenses),
+        branchRevenues: Object.fromEntries(Object.entries(v.branchRevenues).map(([k, c]) => [k, fromCents(c)])),
       }));
 
-    const now = new Date();
-    const months: string[] = [];
-    const monthNames: string[] = [];
+    // Trailing six calendar months ending in the business "today" month, same rules and branch filter.
+    const monthKeys: string[] = [];
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      months.push(`${yyyy}-${mm}`);
-      monthNames.push(d.toLocaleString('default', { month: 'short' }));
+      const d = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1 - i, 1));
+      monthKeys.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
     }
-
-    const monthlyRevenueChart = months.map((m, idx) => {
-      const mBookings = allBookings.filter((b) => {
-        if (!b.date.startsWith(m)) return false;
-        if (branchSearchTerms.length > 0) {
-          const bName = b.branch.toLowerCase();
-          return branchSearchTerms.some((term) => bName.includes(term) || term.includes(bName));
-        }
-        return true;
-      });
-      const mExpenses = allExpenses.filter((e) => {
-        if (!e.date.startsWith(m)) return false;
-        if (branchSearchTerms.length > 0) {
-          const eBranch = e.branch.toLowerCase();
-          if (eBranch === 'both branches' || eBranch === 'all branches') return true;
-          return branchSearchTerms.some((term) => eBranch.includes(term) || term.includes(eBranch));
-        }
-        return true;
-      });
-
-      const rev = mBookings.reduce((sum, b) => sum + Number(b.amount || 0), 0);
-      const exp = mExpenses.reduce((sum, e) => sum + getEffectiveExpenseAmount(e), 0);
-
+    const monthlyRevenueChart = monthKeys.map((m) => {
+      const rev = allBookings
+        .filter((b) => isQualifyingBooking(b.status) && b.date.startsWith(m) && (!selected || recordBelongsToBranch({ branch: b.branch }, selected)))
+        .reduce((s, b) => s + toCents(b.amount), 0);
+      const exp = allExpenses
+        .filter((e) => isQualifyingExpense((e as any).status) && e.date.startsWith(m))
+        .reduce((s, e) => s + expenseCentsForView(e, selected, activeBranchIds), 0);
       return {
-        month: monthNames[idx],
-        revenue: rev,
-        expenses: exp,
-        profit: rev - exp,
+        month: new Date(`${m}-01T00:00:00Z`).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }),
+        revenue: fromCents(rev),
+        expenses: fromCents(exp),
+        profit: fromCents(rev - exp),
       };
     });
 
-    const facilityMap = new Map<string, number>();
-    for (const b of filteredBookings) {
-      facilityMap.set(b.facility, (facilityMap.get(b.facility) || 0) + b.amount);
+    // ---------------------------------------------------------------- breakdowns (all reconcile to the totals above)
+    const facilityAgg = new Map<string, { count: number; cents: number }>();
+    for (const b of bookings) {
+      const cur = facilityAgg.get(b.facility) || { count: 0, cents: 0 };
+      facilityAgg.set(b.facility, { count: cur.count + 1, cents: cur.cents + toCents(b.amount) });
     }
-
-    const facilityRevenueBreakdown = Array.from(facilityMap.entries())
-      .map(([facility, revenue]) => ({
-        facility,
-        revenue,
-        percentage: totalRevenue > 0 ? Math.round((revenue / totalRevenue) * 100) : 0,
-      }))
+    const facilityRevenueBreakdown = [...facilityAgg.entries()]
+      .map(([facility, v]) => ({ facility, revenue: fromCents(v.cents), percentage: pct(v.cents, revenueCents) }))
+      .sort((a, b) => b.revenue - a.revenue);
+    const topFacilities = [...facilityAgg.entries()]
+      .map(([facility, v]) => ({ facility, bookingsCount: v.count, revenue: fromCents(v.cents) }))
       .sort((a, b) => b.revenue - a.revenue);
 
-    const categoryMap = new Map<string, number>();
-    for (const e of filteredExpenses) {
-      const amt = getEffectiveExpenseAmount(e);
-      categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + amt);
+    const catAgg = new Map<string, { count: number; cents: number }>();
+    for (const x of expenses) {
+      const key = x.e.category || 'Uncategorized';
+      const cur = catAgg.get(key) || { count: 0, cents: 0 };
+      catAgg.set(key, { count: cur.count + 1, cents: cur.cents + x.cents });
     }
-
-    const expenseCategoryBreakdown = Array.from(categoryMap.entries())
-      .map(([category, amount]) => ({
-        category,
-        amount,
-        percentage: totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0,
-      }))
+    const expenseCategoryBreakdown = [...catAgg.entries()]
+      .map(([category, v]) => ({ category, amount: fromCents(v.cents), percentage: pct(v.cents, expenseCents) }))
       .sort((a, b) => b.amount - a.amount);
-
-    const topFacilityStats = new Map<string, { count: number; revenue: number }>();
-    for (const b of filteredBookings) {
-      const cur = topFacilityStats.get(b.facility) || { count: 0, revenue: 0 };
-      topFacilityStats.set(b.facility, {
-        count: cur.count + 1,
-        revenue: cur.revenue + b.amount,
-      });
-    }
-
-    const topFacilities = Array.from(topFacilityStats.entries())
-      .map(([facility, data]) => ({
-        facility,
-        bookingsCount: data.count,
-        revenue: data.revenue,
-      }))
-      .sort((a, b) => b.revenue - a.revenue);
-
-    const topExpStats = new Map<string, { count: number; totalAmount: number }>();
-    for (const e of filteredExpenses) {
-      const amt = getEffectiveExpenseAmount(e);
-      const cur = topExpStats.get(e.category) || { count: 0, totalAmount: 0 };
-      topExpStats.set(e.category, {
-        count: cur.count + 1,
-        totalAmount: cur.totalAmount + amt,
-      });
-    }
-
-    const topExpenseCategories = Array.from(topExpStats.entries())
-      .map(([category, data]) => ({
-        category,
-        count: data.count,
-        totalAmount: data.totalAmount,
-      }))
+    const topExpenseCategories = [...catAgg.entries()]
+      .map(([category, v]) => ({ category, count: v.count, totalAmount: fromCents(v.cents) }))
       .sort((a, b) => b.totalAmount - a.totalAmount);
-
-    const expenseItems = filteredExpenses
-      .map((e) => ({
-        id: e.id,
-        name: e.name,
-        category: e.category,
-        amount: getEffectiveExpenseAmount(e),
-        date: e.date,
-        branch: e.branch,
-      }))
+    const expenseItems = expenses
+      .map((x) => ({ id: x.e.id, name: x.e.name, category: x.e.category, amount: fromCents(x.cents), date: x.e.date, branch: x.e.branch }))
       .sort((a, b) => b.amount - a.amount);
+
+    // ---------------------------------------------------------------- branch performance (same rules, every branch from the DB)
+    const branchPerformance: BranchPerformance[] = allBranches.map((br) => {
+      const ref = { id: br.id, name: br.name };
+      const rev = allBookings
+        .filter((b) => isQualifyingBooking(b.status) && inRange(b.date, range) && recordBelongsToBranch({ branch: b.branch }, ref))
+        .reduce((s, b) => s + toCents(b.amount), 0);
+      const exp = allExpenses
+        .filter((e) => isQualifyingExpense((e as any).status) && inRange(e.date, range))
+        .reduce((s, e) => s + expenseCentsForView(e, ref, activeBranchIds), 0);
+      return { branchId: br.id, branch: br.name, revenue: fromCents(rev), expenses: fromCents(exp), netProfit: fromCents(rev - exp), profitMargin: profitMargin(rev, rev - exp) };
+    });
 
     return {
-      totalRevenue,
-      totalExpenses,
-      netProfit,
-      netProfitMargin,
+      totalRevenue: fromCents(revenueCents),
+      totalExpenses: fromCents(expenseCents),
+      netProfit: fromCents(netCents),
+      netProfitMargin: profitMargin(revenueCents, netCents),
       totalBookings,
       uniqueClients,
-      averageBookingValue,
+      averageBookingValue: totalBookings > 0 ? fromCents(Math.round(revenueCents / totalBookings)) : 0,
       occupancyRate,
       revenueVsExpensesChart,
       monthlyRevenueChart,
@@ -351,6 +194,8 @@ export class FinanceService {
       topFacilities,
       topExpenseCategories,
       expenseItems,
-    };
+      dateRange: range,
+      branchPerformance,
+    } as AnalyticsResult;
   }
 }

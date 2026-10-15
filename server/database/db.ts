@@ -21,6 +21,20 @@ const dbConfig: mysql.PoolOptions = {
 
 let pool: mysql.Pool | null = null;
 let isUsingMemory = false;
+
+export const schemaStatus: { ok: boolean | null; error: string | null } = { ok: null, error: null };
+
+/**
+ * The in-memory SQLite database is a DEVELOPMENT-ONLY convenience (e.g. AI Studio previews with no MySQL).
+ * It must be explicitly enabled and can never run in production: silently swapping to a throwaway database
+ * makes every "Saved" confirmation a lie, because the data disappears on restart.
+ */
+export function isMemoryFallbackAllowed(): boolean {
+  return process.env.ALLOW_MEMORY_DB === 'true' && config.env !== 'production' && process.env.NODE_ENV !== 'production';
+}
+export function isUsingMemoryFallback(): boolean {
+  return isUsingMemory;
+}
 let memoryDb: any = null;
 
 function getMemoryDb(): any {
@@ -244,12 +258,21 @@ export async function ensureDatabaseSchema(): Promise<void> {
         }
         await conn.query(`ALTER TABLE business_settings MODIFY COLUMN business_logo LONGTEXT DEFAULT NULL`);
       }
+      // Seed the default role matrix. INSERT IGNORE never overwrites a customised role.
+      const { DEFAULT_ROLE_PERMISSIONS } = await import('../middleware/auth');
+      for (const [role, perms] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+        await conn.query(`INSERT IGNORE INTO user_roles_permissions (role, permissions) VALUES (?, ?)`, [role, JSON.stringify(perms)]);
+      }
+      schemaStatus.ok = true;
+      schemaStatus.error = null;
       console.log('✅ [Schema Verification] Verified all database tables and settings columns');
     } finally {
       conn.release();
     }
   } catch (err: any) {
-    console.error('⚠️ [Schema Verification Warning]:', err.message);
+    schemaStatus.ok = false;
+    schemaStatus.error = err.message;
+    console.error('❌ [Schema Verification FAILED]:', err.message);
   }
 }
 
@@ -276,10 +299,14 @@ export async function checkDbConnection(): Promise<boolean> {
     await ensureDatabaseSchema();
     return true;
   } catch (err: any) {
-    console.warn(`⚠️ [AI Studio DB] MySQL offline (${err.message}) — switching to in-memory database.`);
-    isUsingMemory = true;
-    getMemoryDb();
-    return true;
+    if (isMemoryFallbackAllowed()) {
+      console.warn(`⚠️ [DEV ONLY] MySQL offline (${err.message}). ALLOW_MEMORY_DB=true => using a NON-PERSISTENT in-memory database. Data will be lost on restart.`);
+      isUsingMemory = true;
+      getMemoryDb();
+      return true;
+    }
+    console.error(`❌ [MySQL] Connection failed: ${err.message}`);
+    return false;
   }
 }
 
@@ -297,8 +324,8 @@ export async function executeQuery<T = any>(sql: string, params: any[] = []): Pr
       const [rows] = await activePool.execute(sql, params);
       return rows as T[];
     } catch (err: any) {
-      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'PROTOCOL_CONNECTION_LOST') {
-        console.warn(`⚠️ MySQL disconnected (${err.message}) — falling back to in-memory database`);
+      if (isMemoryFallbackAllowed() && (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'PROTOCOL_CONNECTION_LOST')) {
+        console.warn(`⚠️ [DEV ONLY] MySQL disconnected (${err.message}) — falling back to NON-PERSISTENT in-memory database`);
         isUsingMemory = true;
       } else {
         throw err;
@@ -355,7 +382,7 @@ export async function executeTransaction<T>(
         connection.release();
       }
     } catch (err: any) {
-      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+      if (isMemoryFallbackAllowed() && (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT')) {
         isUsingMemory = true;
       } else {
         throw err;
@@ -401,7 +428,7 @@ export async function executeTransaction<T>(
 }
 
 export function isDbActive(): boolean {
-  return true;
+  return pool !== null || isUsingMemory;
 }
 
 export default {

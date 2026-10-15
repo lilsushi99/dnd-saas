@@ -226,7 +226,7 @@ export class CustomerRepository {
       return customersList;
     } catch (err) {
       console.error('Error in getAllCustomers:', err);
-      return [];
+      throw err;
     }
   }
 
