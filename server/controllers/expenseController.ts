@@ -1,3 +1,4 @@
+import { sendError } from '../domain/errors';
 import { Request, Response } from 'express';
 import { ExpenseService } from '../services/expenseService';
 import { ExpenseRepository } from '../repositories/expenseRepository';
@@ -69,30 +70,30 @@ export class ExpenseController {
 
   public static async createCategory(req: Request, res: Response) {
     try {
-      const category = await service.createCategory(req.body);
+      const category = await service.createCategory(req.body, req.user?.name || 'System');
       return res.status(201).json({ success: true, category });
     } catch (err: any) {
-      return res.status(400).json({ success: false, error: err.message });
+      return sendError(res, err, 'error');
     }
   }
 
   public static async updateCategory(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const category = await service.updateCategory(id, req.body);
+      const category = await service.updateCategory(id, req.body, req.user?.name || 'System');
       return res.json({ success: true, category });
     } catch (err: any) {
-      return res.status(400).json({ success: false, error: err.message });
+      return sendError(res, err, 'error');
     }
   }
 
   public static async deleteCategory(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const success = await service.deleteCategory(id);
+      const success = await service.deleteCategory(id, req.user?.name || 'System');
       return res.json({ success });
     } catch (err: any) {
-      return res.status(400).json({ success: false, error: err.message });
+      return sendError(res, err, 'error');
     }
   }
 }

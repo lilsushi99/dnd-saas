@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CATEGORY_COLOR_SWATCHES, FALLBACK_CATEGORY_COLOR, isHexColor } from '../../constants/categoryColors';
 import { ExpenseCategory } from '../../types';
 import { ExpenseApiService } from '../../services/expenseService';
 import { useToast } from '../../context/ToastContext';
@@ -28,6 +29,7 @@ export const ExpenseCategoriesPage: React.FC = () => {
   const [categoryName, setCategoryName] = useState('');
   const [categoryDesc, setCategoryDesc] = useState('');
   const [categoryStatus, setCategoryStatus] = useState<'Active' | 'Inactive'>('Active');
+  const [categoryColor, setCategoryColor] = useState<string>(CATEGORY_COLOR_SWATCHES[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadCategories = async () => {
@@ -51,6 +53,9 @@ export const ExpenseCategoriesPage: React.FC = () => {
     setCategoryName('');
     setCategoryDesc('');
     setCategoryStatus('Active');
+    // Suggest the first swatch no other category is using yet.
+    const used = new Set(categories.map((c) => (c.color || '').toUpperCase()));
+    setCategoryColor(CATEGORY_COLOR_SWATCHES.find((c) => !used.has(c)) || CATEGORY_COLOR_SWATCHES[0]);
     setIsModalOpen(true);
   };
 
@@ -59,6 +64,7 @@ export const ExpenseCategoriesPage: React.FC = () => {
     setCategoryName(cat.name);
     setCategoryDesc(cat.description || '');
     setCategoryStatus(cat.status);
+    setCategoryColor(cat.color || FALLBACK_CATEGORY_COLOR);
     setIsModalOpen(true);
   };
 
@@ -80,12 +86,18 @@ export const ExpenseCategoriesPage: React.FC = () => {
       return;
     }
 
+    if (!isHexColor(categoryColor)) {
+      showToast('Validation Error', 'Choose a valid category color.', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (editingCategory) {
         await ExpenseApiService.updateCategory(editingCategory.id, {
           name: categoryName.trim(),
           description: categoryDesc.trim(),
+          color: categoryColor,
           status: categoryStatus,
         });
         showToast('Category Updated', `Category "${categoryName}" updated.`, 'success');
@@ -93,6 +105,7 @@ export const ExpenseCategoriesPage: React.FC = () => {
         await ExpenseApiService.createCategory({
           name: categoryName.trim(),
           description: categoryDesc.trim(),
+          color: categoryColor,
         });
         showToast('Category Created', `New category "${categoryName}" created.`, 'success');
       }
@@ -230,7 +243,14 @@ export const ExpenseCategoriesPage: React.FC = () => {
                   <tr key={cat.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="py-3.5 px-6 font-mono font-normal text-blue-600">{cat.id}</td>
                     <td className="py-3.5 px-6 font-medium text-gray-900">
-                      {cat.name}
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className="inline-block w-3 h-3 rounded-full border border-black/5 shrink-0"
+                          style={{ backgroundColor: cat.color || FALLBACK_CATEGORY_COLOR }}
+                          title={cat.color || FALLBACK_CATEGORY_COLOR}
+                        />
+                        {cat.name}
+                      </span>
                     </td>
                     <td className="py-3.5 px-6 text-gray-600 max-w-xs truncate">
                       {cat.description || '—'}
@@ -326,6 +346,34 @@ export const ExpenseCategoriesPage: React.FC = () => {
                   onChange={(e) => setCategoryDesc(e.target.value)}
                   className="w-full bg-white border border-gray-300 rounded-xl p-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Category Color *
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {CATEGORY_COLOR_SWATCHES.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCategoryColor(c)}
+                      aria-label={`Use color ${c}`}
+                      className={`w-7 h-7 rounded-full border-2 transition-all cursor-pointer ${
+                        categoryColor.toUpperCase() === c ? 'border-gray-900 scale-110' : 'border-transparent hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={isHexColor(categoryColor) ? categoryColor : FALLBACK_CATEGORY_COLOR}
+                    onChange={(e) => setCategoryColor(e.target.value.toUpperCase())}
+                    aria-label="Pick a custom color"
+                    className="w-7 h-7 p-0 rounded-full border border-gray-300 bg-white cursor-pointer"
+                  />
+                  <span className="text-xs font-mono text-gray-500 ml-1">{categoryColor.toUpperCase()}</span>
+                </div>
               </div>
 
               {editingCategory && (

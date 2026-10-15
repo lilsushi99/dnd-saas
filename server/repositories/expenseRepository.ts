@@ -1,5 +1,8 @@
+import { cleanColor, cleanStatus, cleanText, pickDefaultColor, DEFAULT_CATEGORY_COLOR } from '../domain/masterData';
+import { badRequest, conflict } from '../domain/errors';
+import { insertWithGeneratedId } from '../database/ids';
 import { Expense, ExpenseFilters, ExpenseSummaryMetrics, ExpenseCategory } from '../../src/types';
-import { executeQuery } from '../database/db';
+import { executeQuery, executeTransaction } from '../database/db';
 import { auditRepository } from './auditRepository';
 
 function formatDateToISO(val: any): string {
@@ -31,14 +34,15 @@ export class ExpenseRepository {
   public async getCategories(): Promise<ExpenseCategory[]> {
     try {
       const rows = await executeQuery<any>(
-        `SELECT id, name, description, status, created_date as createdDate FROM expense_categories ORDER BY id ASC`
+        `SELECT id, name, description, color, status, created_date as createdDate FROM expense_categories ORDER BY id ASC`
       );
       return rows.map((r) => ({
         id: r.id,
         name: r.name,
         description: r.description || '',
+        color: r.color || DEFAULT_CATEGORY_COLOR,
         status: (r.status || 'Active') as 'Active' | 'Inactive',
-        createdDate: r.createdDate || new Date().toISOString().split('T')[0],
+        createdDate: formatDateToISO(r.createdDate) || new Date().toISOString().split('T')[0],
       }));
     } catch (err) {
       console.error('Error fetching expense categories:', err);
@@ -46,67 +50,76 @@ export class ExpenseRepository {
     }
   }
 
-  public async createCategory(data: { name: string; description?: string }): Promise<ExpenseCategory> {
-    const categories = await this.getCategories();
-    const newCat: ExpenseCategory = {
-      id: `EC-00${categories.length + 1}`,
-      name: data.name,
-      description: data.description || '',
-      status: 'Active',
-      createdDate: new Date().toISOString().split('T')[0],
-    };
-
-    await executeQuery(
-      `INSERT INTO expense_categories (id, name, description, status, created_date) VALUES (?, ?, ?, ?, ?)`,
-      [newCat.id, newCat.name, newCat.description, newCat.status, newCat.createdDate]
-    );
-
-    auditRepository.logAction({
-      user: 'System Admin',
-      action: 'CREATE_EXPENSE_CATEGORY',
-      entity: 'expense_categories',
-      entityId: newCat.id,
-      newValue: newCat,
-    });
-
-    return newCat;
+  private async assertCategoryNameFree(name: string, exceptId?: string) {
+    const dup = await executeQuery<any>(`SELECT id FROM expense_categories WHERE LOWER(name) = LOWER(?) AND id <> ? LIMIT 1`, [name, exceptId || '']);
+    if (dup.length > 0) throw conflict(`A category named "${name}" already exists.`);
   }
 
-  public async updateCategory(id: string, updates: Partial<ExpenseCategory>): Promise<ExpenseCategory | null> {
-    await executeQuery(
-      `UPDATE expense_categories SET name = COALESCE(?, name), description = COALESCE(?, description), status = COALESCE(?, status) WHERE id = ?`,
-      [updates.name || null, updates.description || null, updates.status || null, id]
-    );
+  public async createCategory(data: { name: string; description?: string; color?: string; status?: 'Active' | 'Inactive' }, actor = 'System'): Promise<ExpenseCategory> {
+    const name = cleanText(data?.name, { label: 'Category name', min: 2, max: 100, required: true })!;
+    const description = cleanText(data?.description, { label: 'Description', max: 500 }) ?? '';
+    const status = cleanStatus(data?.status) ?? 'Active';
+    await this.assertCategoryNameFree(name);
+    const existing = await this.getCategories();
+    const color = cleanColor(data?.color) ?? pickDefaultColor(existing.map((c) => c.color || ''));
+    const createdDate = new Date().toISOString().split('T')[0];
 
-    const categories = await this.getCategories();
-    const updated = categories.find((c) => c.id === id);
-    if (updated) {
-      auditRepository.logAction({
-        user: 'System Admin',
-        action: 'UPDATE_EXPENSE_CATEGORY',
-        entity: 'expense_categories',
-        entityId: id,
-        newValue: updated,
+    const id = await insertWithGeneratedId('EC', 'expense_categories', async (newId) => {
+      await executeQuery(
+        `INSERT INTO expense_categories (id, name, description, color, status, created_date) VALUES (?, ?, ?, ?, ?, ?)`,
+        [newId, name, description, color, status, createdDate]
+      );
+    });
+    const created: ExpenseCategory = { id, name, description, color, status, createdDate };
+    auditRepository.logAction({ user: actor, action: 'CREATE_EXPENSE_CATEGORY', entity: 'expense_categories', entityId: id, newValue: created });
+    return created;
+  }
+
+  public async updateCategory(id: string, updates: Partial<ExpenseCategory>, actor = 'System'): Promise<ExpenseCategory | null> {
+    const current = (await this.getCategories()).find((c) => c.id === id);
+    if (!current) return null;
+
+    const name = cleanText(updates?.name, { label: 'Category name', min: 2, max: 100 });
+    if (updates?.name !== undefined && name === '') throw badRequest('Category name is required.');
+    const description = cleanText(updates?.description, { label: 'Description', max: 500 });
+    const color = cleanColor(updates?.color);
+    const status = cleanStatus(updates?.status);
+    if (name && name.toLowerCase() !== current.name.toLowerCase()) await this.assertCategoryNameFree(name, id);
+
+    const sets: string[] = [];
+    const params: any[] = [];
+    if (name !== undefined) { sets.push('name = ?'); params.push(name); }
+    if (description !== undefined) { sets.push('description = ?'); params.push(description); }
+    if (color !== undefined) { sets.push('color = ?'); params.push(color); }
+    if (status !== undefined) { sets.push('status = ?'); params.push(status); }
+
+    if (sets.length > 0) {
+      await executeTransaction(async (conn) => {
+        await conn.execute(`UPDATE expense_categories SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
+        // Expenses reference their category by name, so a rename must carry them along or history is orphaned.
+        if (name && name !== current.name) {
+          await conn.execute(`UPDATE expenses SET category = ? WHERE category_id = ? OR LOWER(category) = LOWER(?)`, [name, id, current.name]);
+          await conn.execute(`UPDATE expenses SET category_id = ? WHERE category_id IS NULL AND LOWER(category) = LOWER(?)`, [id, name]);
+        }
       });
     }
-    return updated || null;
+
+    const updated = (await this.getCategories()).find((c) => c.id === id) || null;
+    if (updated) auditRepository.logAction({ user: actor, action: 'UPDATE_EXPENSE_CATEGORY', entity: 'expense_categories', entityId: id, previousValue: current, newValue: updated });
+    return updated;
   }
 
-  public async deleteCategory(id: string): Promise<boolean> {
-    const categories = await this.getCategories();
-    const deleted = categories.find((c) => c.id === id);
+  public async deleteCategory(id: string, actor = 'System'): Promise<boolean> {
+    const deleted = (await this.getCategories()).find((c) => c.id === id);
     if (!deleted) return false;
 
+    const used = await executeQuery<any>(`SELECT COUNT(*) AS cnt FROM expenses WHERE category_id = ? OR LOWER(category) = LOWER(?)`, [id, deleted.name]);
+    const n = Number(used[0]?.cnt || 0);
+    if (n > 0) {
+      throw conflict(`"${deleted.name}" is used by ${n} expense record${n === 1 ? '' : 's'} and cannot be deleted. Deactivate it instead to keep your history intact.`);
+    }
     await executeQuery(`DELETE FROM expense_categories WHERE id = ?`, [id]);
-
-    auditRepository.logAction({
-      user: 'System Admin',
-      action: 'DELETE_EXPENSE_CATEGORY',
-      entity: 'expense_categories',
-      entityId: id,
-      previousValue: deleted,
-    });
-
+    auditRepository.logAction({ user: actor, action: 'DELETE_EXPENSE_CATEGORY', entity: 'expense_categories', entityId: id, previousValue: deleted });
     return true;
   }
 

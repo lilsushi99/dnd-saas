@@ -1,5 +1,8 @@
+import { cleanNonNegativeNumber, cleanStatus, cleanText } from '../domain/masterData';
+import { badRequest, conflict } from '../domain/errors';
+import { insertWithGeneratedId } from '../database/ids';
 import { Branch, Facility, AdminUser, RolePermission, ImportSpreadsheetRow, ImportResultSummary } from '../../src/types';
-import { executeQuery } from '../database/db';
+import { executeQuery, executeTransaction } from '../database/db';
 import { auditRepository } from './auditRepository';
 
 export class AdminRepository {
@@ -27,65 +30,68 @@ export class AdminRepository {
     return branches.find((b) => b.id === id);
   }
 
-  public async createBranch(data: Omit<Branch, 'id' | 'createdDate'>): Promise<Branch> {
-    const branches = await this.getBranches();
-    const newBranch: Branch = {
-      id: `BR-00${branches.length + 1}`,
-      ...data,
-      createdDate: new Date().toISOString().split('T')[0],
-    };
-
-    await executeQuery(
-      `INSERT INTO branches (id, name, location, status, created_date) VALUES (?, ?, ?, ?, ?)`,
-      [newBranch.id, newBranch.name, newBranch.location, newBranch.status, newBranch.createdDate]
-    );
-
-    auditRepository.logAction({
-      user: 'System Admin',
-      action: 'CREATE_BRANCH',
-      entity: 'branches',
-      entityId: newBranch.id,
-      newValue: newBranch,
-    });
-
-    return newBranch;
+  private async assertBranchNameFree(name: string, exceptId?: string) {
+    const dup = await executeQuery<any>(`SELECT id FROM branches WHERE LOWER(name) = LOWER(?) AND id <> ? LIMIT 1`, [name, exceptId || '']);
+    if (dup.length > 0) throw conflict(`A branch named "${name}" already exists.`);
   }
 
-  public async updateBranch(id: string, updates: Partial<Branch>): Promise<Branch | null> {
-    await executeQuery(
-      `UPDATE branches SET name = COALESCE(?, name), location = COALESCE(?, location), status = COALESCE(?, status) WHERE id = ?`,
-      [updates.name || null, updates.location || null, updates.status || null, id]
-    );
+  public async createBranch(data: Omit<Branch, 'id' | 'createdDate'>, actor = 'System'): Promise<Branch> {
+    const name = cleanText(data?.name, { label: 'Branch name', min: 2, max: 100, required: true })!;
+    const location = cleanText(data?.location, { label: 'Location', max: 200 }) ?? '';
+    const status = cleanStatus(data?.status) ?? 'Active';
+    await this.assertBranchNameFree(name);
+    const createdDate = new Date().toISOString().split('T')[0];
 
-    const updated = await this.getBranchById(id);
-    if (updated) {
-      auditRepository.logAction({
-        user: 'System Admin',
-        action: 'UPDATE_BRANCH',
-        entity: 'branches',
-        entityId: id,
-        newValue: updated,
+    const id = await insertWithGeneratedId('BR', 'branches', async (newId) => {
+      await executeQuery(`INSERT INTO branches (id, name, location, status, created_date) VALUES (?, ?, ?, ?, ?)`, [newId, name, location, status, createdDate]);
+    });
+    const created: Branch = { id, name, location, status, createdDate };
+    auditRepository.logAction({ user: actor, action: 'CREATE_BRANCH', entity: 'branches', entityId: id, newValue: created });
+    return created;
+  }
+
+  public async updateBranch(id: string, updates: Partial<Branch>, actor = 'System'): Promise<Branch | null> {
+    const current = await this.getBranchById(id);
+    if (!current) return null;
+
+    const name = cleanText(updates?.name, { label: 'Branch name', min: 2, max: 100 });
+    if (updates?.name !== undefined && name === '') throw badRequest('Branch name is required.');
+    const location = cleanText(updates?.location, { label: 'Location', max: 200 });
+    const status = cleanStatus(updates?.status);
+    if (name && name.toLowerCase() !== current.name.toLowerCase()) await this.assertBranchNameFree(name, id);
+
+    const sets: string[] = [];
+    const params: any[] = [];
+    if (name !== undefined) { sets.push('name = ?'); params.push(name); }
+    if (location !== undefined) { sets.push('location = ?'); params.push(location); }
+    if (status !== undefined) { sets.push('status = ?'); params.push(status); }
+
+    if (sets.length > 0) {
+      await executeTransaction(async (conn) => {
+        await conn.execute(`UPDATE branches SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
+        // Bookings, expenses, facilities and users hold the branch NAME as well as its id. Rename them together
+        // so financial history stays attached to the branch instead of being orphaned under the old name.
+        if (name && name !== current.name) {
+          await conn.execute(`UPDATE facilities SET branch_name = ? WHERE branch_id = ?`, [name, id]);
+          await conn.execute(`UPDATE bookings SET branch = ? WHERE branch_id = ? OR LOWER(branch) = LOWER(?)`, [name, id, current.name]);
+          await conn.execute(`UPDATE expenses SET branch = ? WHERE branch_id = ? OR LOWER(branch) = LOWER(?)`, [name, id, current.name]);
+          await conn.execute(`UPDATE users SET branch = ? WHERE branch_id = ? OR LOWER(branch) = LOWER(?)`, [name, id, current.name]);
+        }
       });
     }
+
+    const updated = await this.getBranchById(id);
+    if (updated) auditRepository.logAction({ user: actor, action: 'UPDATE_BRANCH', entity: 'branches', entityId: id, previousValue: current, newValue: updated });
     return updated || null;
   }
 
-  public async toggleBranchStatus(id: string): Promise<Branch | null> {
+  public async toggleBranchStatus(id: string, actor = 'System'): Promise<Branch | null> {
     const branch = await this.getBranchById(id);
     if (!branch) return null;
 
     const newStatus = branch.status === 'Active' ? 'Inactive' : 'Active';
     await executeQuery(`UPDATE branches SET status = ? WHERE id = ?`, [newStatus, id]);
-
-    auditRepository.logAction({
-      user: 'System Admin',
-      action: 'TOGGLE_BRANCH_STATUS',
-      entity: 'branches',
-      entityId: id,
-      previousValue: { status: branch.status },
-      newValue: { status: newStatus },
-    });
-
+    auditRepository.logAction({ user: actor, action: 'TOGGLE_BRANCH_STATUS', entity: 'branches', entityId: id, previousValue: { status: branch.status }, newValue: { status: newStatus } });
     branch.status = newStatus;
     return branch;
   }
@@ -112,100 +118,88 @@ export class AdminRepository {
     }
   }
 
-  public async createFacility(data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status: 'Active' | 'Inactive' }): Promise<Facility> {
-    const facilities = await this.getFacilities();
-    const branches = await this.getBranches();
-    const branch = branches.find((b) => b.id === data.branchId);
-
-    const newFacility: Facility = {
-      id: `FAC-00${facilities.length + 1}`,
-      name: data.name,
-      branchId: data.branchId,
-      branchName: branch ? branch.name : '',
-      defaultPrice: data.defaultPrice || 0,
-      capacity: data.capacity || 0,
-      status: data.status,
-      createdDate: new Date().toISOString().split('T')[0],
-    };
-
-    await executeQuery(
-      `INSERT INTO facilities (id, name, branch_id, branch_name, default_price, capacity, status, created_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        newFacility.id,
-        newFacility.name,
-        newFacility.branchId,
-        newFacility.branchName,
-        newFacility.defaultPrice,
-        newFacility.capacity,
-        newFacility.status,
-        newFacility.createdDate,
-      ]
+  private async countFacilityBookings(f: { name: string; branchName?: string }, id: string): Promise<number> {
+    const r = await executeQuery<any>(
+      `SELECT COUNT(*) AS cnt FROM bookings WHERE facility_id = ? OR (LOWER(facility) = LOWER(?) AND LOWER(branch) = LOWER(?))`,
+      [id, f.name, f.branchName || '']
     );
+    return Number(r[0]?.cnt || 0);
+  }
 
-    auditRepository.logAction({
-      user: 'System Admin',
-      action: 'CREATE_FACILITY',
-      entity: 'facilities',
-      entityId: newFacility.id,
-      newValue: newFacility,
+  public async createFacility(data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status?: 'Active' | 'Inactive' }, actor = 'System'): Promise<Facility> {
+    const name = cleanText(data?.name, { label: 'Facility name', min: 2, max: 100, required: true })!;
+    const status = cleanStatus(data?.status) ?? 'Active';
+    const defaultPrice = cleanNonNegativeNumber(data?.defaultPrice, 'Default price', { max: 1e9 }) ?? 0;
+    const capacity = cleanNonNegativeNumber(data?.capacity, 'Capacity', { integer: true, max: 100000 }) ?? 0;
+    const branch = typeof data?.branchId === 'string' ? await this.getBranchById(data.branchId) : undefined;
+    if (!branch) throw badRequest('Select a valid branch for this facility.');
+    if (branch.status !== 'Active') throw badRequest('Facilities can only be added to an active branch.');
+    const dup = await executeQuery<any>(`SELECT id FROM facilities WHERE branch_id = ? AND LOWER(name) = LOWER(?) LIMIT 1`, [branch.id, name]);
+    if (dup.length > 0) throw conflict(`${branch.name} already has a facility named "${name}".`);
+    const createdDate = new Date().toISOString().split('T')[0];
+
+    const id = await insertWithGeneratedId('FAC', 'facilities', async (newId) => {
+      await executeQuery(
+        `INSERT INTO facilities (id, name, branch_id, branch_name, default_price, capacity, status, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [newId, name, branch.id, branch.name, defaultPrice, capacity, status, createdDate]
+      );
+    });
+    const created: Facility = { id, name, branchId: branch.id, branchName: branch.name, defaultPrice, capacity, status, createdDate };
+    auditRepository.logAction({ user: actor, action: 'CREATE_FACILITY', entity: 'facilities', entityId: id, newValue: created });
+    return created;
+  }
+
+  public async updateFacility(id: string, updates: Partial<Facility>, actor = 'System'): Promise<Facility | null> {
+    const current = (await this.getFacilities()).find((f) => f.id === id);
+    if (!current) return null;
+
+    const name = cleanText(updates?.name, { label: 'Facility name', min: 2, max: 100 });
+    if (updates?.name !== undefined && name === '') throw badRequest('Facility name is required.');
+    const status = cleanStatus(updates?.status);
+    const defaultPrice = cleanNonNegativeNumber(updates?.defaultPrice, 'Default price', { max: 1e9 });
+    const capacity = cleanNonNegativeNumber(updates?.capacity, 'Capacity', { integer: true, max: 100000 });
+
+    let targetBranch = { id: current.branchId, name: current.branchName };
+    if (updates?.branchId && updates.branchId !== current.branchId) {
+      const b = await this.getBranchById(updates.branchId);
+      if (!b) throw badRequest('Select a valid branch for this facility.');
+      if (b.status !== 'Active') throw badRequest('Facilities can only be moved to an active branch.');
+      if ((await this.countFacilityBookings(current, id)) > 0) {
+        throw conflict('This facility has booking history and cannot be moved to another branch. Create a new facility there instead.');
+      }
+      targetBranch = { id: b.id, name: b.name };
+    }
+    const finalName = name ?? current.name;
+    if (finalName.toLowerCase() !== current.name.toLowerCase() || targetBranch.id !== current.branchId) {
+      const dup = await executeQuery<any>(`SELECT id FROM facilities WHERE branch_id = ? AND LOWER(name) = LOWER(?) AND id <> ? LIMIT 1`, [targetBranch.id, finalName, id]);
+      if (dup.length > 0) throw conflict(`${targetBranch.name} already has a facility named "${finalName}".`);
+    }
+
+    await executeTransaction(async (conn) => {
+      await conn.execute(
+        `UPDATE facilities SET name = ?, branch_id = ?, branch_name = ?, default_price = ?, capacity = ?, status = ? WHERE id = ?`,
+        [finalName, targetBranch.id, targetBranch.name, defaultPrice ?? current.defaultPrice ?? 0, capacity ?? current.capacity ?? 0, status ?? current.status, id]
+      );
+      // Bookings reference the facility by name: carry a rename along so history stays attached.
+      if (finalName !== current.name) {
+        await conn.execute(`UPDATE bookings SET facility = ? WHERE facility_id = ? OR (LOWER(facility) = LOWER(?) AND LOWER(branch) = LOWER(?))`, [finalName, id, current.name, current.branchName || '']);
+      }
     });
 
-    return newFacility;
+    const updated = (await this.getFacilities()).find((f) => f.id === id) || null;
+    if (updated) auditRepository.logAction({ user: actor, action: 'UPDATE_FACILITY', entity: 'facilities', entityId: id, previousValue: current, newValue: updated });
+    return updated;
   }
 
-  public async updateFacility(id: string, updates: Partial<Facility>): Promise<Facility | null> {
-    let branchName: string | null = null;
-    if (updates.branchId) {
-      const branches = await this.getBranches();
-      const b = branches.find((br) => br.id === updates.branchId);
-      if (b) branchName = b.name;
-    }
-
-    await executeQuery(
-      `UPDATE facilities SET name = COALESCE(?, name), branch_id = COALESCE(?, branch_id),
-       branch_name = COALESCE(?, branch_name), default_price = COALESCE(?, default_price), capacity = COALESCE(?, capacity),
-       status = COALESCE(?, status) WHERE id = ?`,
-      [
-        updates.name || null,
-        updates.branchId || null,
-        branchName,
-        updates.defaultPrice !== undefined ? updates.defaultPrice : null,
-        updates.capacity !== undefined ? updates.capacity : null,
-        updates.status || null,
-        id,
-      ]
-    );
-
-    const facilities = await this.getFacilities();
-    const updated = facilities.find((f) => f.id === id);
-    if (updated) {
-      auditRepository.logAction({
-        user: 'System Admin',
-        action: 'UPDATE_FACILITY',
-        entity: 'facilities',
-        entityId: id,
-        newValue: updated,
-      });
-    }
-    return updated || null;
-  }
-
-  public async deleteFacility(id: string): Promise<boolean> {
-    const facilities = await this.getFacilities();
-    const deleted = facilities.find((f) => f.id === id);
+  public async deleteFacility(id: string, actor = 'System'): Promise<boolean> {
+    const deleted = (await this.getFacilities()).find((f) => f.id === id);
     if (!deleted) return false;
-
+    const n = await this.countFacilityBookings(deleted, id);
+    if (n > 0) {
+      throw conflict(`"${deleted.name}" has ${n} booking${n === 1 ? '' : 's'} and cannot be deleted. Deactivate it instead to keep your history intact.`);
+    }
     await executeQuery(`DELETE FROM facilities WHERE id = ?`, [id]);
-
-    auditRepository.logAction({
-      user: 'System Admin',
-      action: 'DELETE_FACILITY',
-      entity: 'facilities',
-      entityId: id,
-      previousValue: deleted,
-    });
-
+    auditRepository.logAction({ user: actor, action: 'DELETE_FACILITY', entity: 'facilities', entityId: id, previousValue: deleted });
     return true;
   }
 

@@ -3,6 +3,31 @@
 Status labels: **Implemented**, **Tested and Passed**, **Implemented but Not Fully Tested**, **Blocked**, **Not Implemented**.
 Last updated: 2026-10-14 (Stage 1 + parts of Stages 2, 5). Resume from "Next concrete task" below; do not restart the analysis.
 
+
+## STAGE 2 UPDATE (master data) — 2026-10-15
+
+**Implemented and Tested and Passed (real MariaDB, 43/43 tests):**
+- Tracked, idempotent, additive migration runner (`server/database/migrations.ts`, table `schema_migrations`). A failed migration is not recorded, is retried on next start and shows as `schema: failed` in `/api/health`.
+  - `001_expense_category_color`: `expense_categories.color VARCHAR(7)` + distinct default colours for existing categories (no records touched).
+  - `002_reference_columns_and_backfill`: `expenses.category_id/branch_id`, `bookings.branch_id/facility_id` (+ indexes), backfilled by exact case-insensitive name match only; unmatched rows stay NULL.
+- Expense categories: validation, case-insensitive uniqueness, **colour stored in DB** and shown in the UI (swatches + custom picker) and in the analytics expense breakdown; collision-safe IDs (were `EC-00<count>`); rename carries existing expenses along; **delete refused (409) when expenses use the category** (deactivate instead).
+- Branches: validation/uniqueness; collision-safe IDs; **rename cascades** to facilities, bookings, expenses and users so history stays attached (reports match by name); new branches appear in analytics automatically.
+- Facilities: branch must exist and be active; capacity/price validation; duplicate-in-branch protection; rename cascades to bookings; **cannot delete or move a facility that has bookings** (409); capacity edits flow into occupancy.
+- Audit log now records the signed-in user (was hard-coded `System Admin`) for these entities.
+- Structured errors: validation => 400, conflict => 409, missing => 404, DB failure => 500 (sanitised).
+
+**Also fixed while merging `main` (PR #3):**
+- `main` introduced an in-memory SQLite fallback that activated on **any** MySQL connection error, in production too: the app reported healthy while writes went to a throwaway DB. It is now **opt-in** (`ALLOW_MEMORY_DB=true`, never in production) and `/api/health` reports `degraded` while it is active.
+- `.env.example` on `main` contained what appeared to be real DB host/user/password in a **public** repo. Scrubbed in the file; **still in git history => rotate that password.**
+- `.env.example` was loaded with `override: true` as a fallback (could override real env vars) — now dev-only and non-overriding; `PORT` env is honoured (default 3000).
+- Added the `customDates` filter (non-contiguous dates) to the shared rules with tests.
+
+**Observed but not changed:** `main` deleted `package-lock.json` and `bun.lock` (non-reproducible installs; `npm ci` will fail). Recommend restoring one lockfile.
+
+**Still Not Implemented in Stage 2:** per-user Profile persistence (still singleton `profile_settings id=1`), Business Settings persistence review + `tax_rate` removal, password reset (needs SMTP config), foreign-key constraints on the new reference columns (deliberately deferred until backfill is verified on production data), user management hardening (IDs/validation), expense create/edit still writes name text and does not yet populate `category_id`/`branch_id` (Stage 3).
+
+**Deployment note:** on first start the server runs migrations 001–002 against the configured database automatically. They are additive (new columns/indexes + backfill). Take a backup first.
+
 ## A. Root causes found (evidence in code)
 
 | # | Root cause | Where | Effect |

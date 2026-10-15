@@ -4,6 +4,9 @@ import path from 'path';
 import { AdminService } from '../services/adminService';
 import { auditRepository } from '../repositories/auditRepository';
 import { executeQuery } from '../database/db';
+import { sendError } from '../domain/errors';
+
+const actorName = (req: Request): string => req.user?.name || 'System';
 
 export class AdminController {
   private adminService: AdminService;
@@ -18,36 +21,36 @@ export class AdminController {
       const branches = await this.adminService.getBranches();
       res.json({ success: true, data: branches });
     } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
+      sendError(res, { sqlMessage: err.message, message: err.message });
     }
   };
 
   public createBranch = async (req: Request, res: Response): Promise<void> => {
     try {
-      const newBranch = await this.adminService.createBranch(req.body);
+      const newBranch = await this.adminService.createBranch(req.body, actorName(req));
       res.status(201).json({ success: true, data: newBranch, message: 'Branch created successfully' });
     } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
+      sendError(res, err);
     }
   };
 
   public updateBranch = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const updated = await this.adminService.updateBranch(id, req.body);
+      const updated = await this.adminService.updateBranch(id, req.body, actorName(req));
       res.json({ success: true, data: updated, message: 'Branch updated successfully' });
     } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
+      sendError(res, err);
     }
   };
 
   public toggleBranchStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const updated = await this.adminService.toggleBranchStatus(id);
+      const updated = await this.adminService.toggleBranchStatus(id, actorName(req));
       res.json({ success: true, data: updated, message: `Branch status updated to ${updated.status}` });
     } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
+      sendError(res, err);
     }
   };
 
@@ -57,36 +60,36 @@ export class AdminController {
       const facilities = await this.adminService.getFacilities();
       res.json({ success: true, data: facilities });
     } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
+      sendError(res, { sqlMessage: err.message, message: err.message });
     }
   };
 
   public createFacility = async (req: Request, res: Response): Promise<void> => {
     try {
-      const newFacility = await this.adminService.createFacility(req.body);
+      const newFacility = await this.adminService.createFacility(req.body, actorName(req));
       res.status(201).json({ success: true, data: newFacility, message: 'Facility created successfully' });
     } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
+      sendError(res, err);
     }
   };
 
   public updateFacility = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const updated = await this.adminService.updateFacility(id, req.body);
+      const updated = await this.adminService.updateFacility(id, req.body, actorName(req));
       res.json({ success: true, data: updated, message: 'Facility updated successfully' });
     } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
+      sendError(res, err);
     }
   };
 
   public deleteFacility = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      await this.adminService.deleteFacility(id);
+      await this.adminService.deleteFacility(id, actorName(req));
       res.json({ success: true, message: 'Facility deleted successfully' });
     } catch (err: any) {
-      res.status(400).json({ success: false, message: err.message });
+      sendError(res, err);
     }
   };
 
