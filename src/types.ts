@@ -144,6 +144,8 @@ export interface ExpenseCategory {
   id: string;
   name: string;
   description?: string;
+  /** Hex colour (#RRGGBB) stored in the database and used by every chart/selector. */
+  color?: string;
   status: 'Active' | 'Inactive';
   createdDate?: string;
 }
@@ -287,6 +289,8 @@ export interface FinanceAnalyticsSummary {
     category: string;
     amount: number;
     percentage: number;
+    /** Colour stored on the category in the database. */
+    color?: string;
   }>;
   topFacilities: Array<{
     facility: string;

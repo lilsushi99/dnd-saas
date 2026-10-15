@@ -1,3 +1,4 @@
+import { notFound } from '../domain/errors';
 import { ExpenseRepository } from '../repositories/expenseRepository';
 import { Expense, ExpenseFilters, ExpenseSummaryMetrics, ExpenseCategory } from '../../src/types';
 
@@ -41,22 +42,24 @@ export class ExpenseService {
     return await this.repository.getCategories();
   }
 
-  public async createCategory(data: { name: string; description?: string }): Promise<ExpenseCategory> {
+  public async createCategory(data: { name: string; description?: string; color?: string; status?: 'Active' | 'Inactive' }, actor = 'System'): Promise<ExpenseCategory> {
     if (!data.name || !data.name.trim()) {
       throw new Error('Category name is required.');
     }
-    return await this.repository.createCategory(data);
+    return await this.repository.createCategory(data, actor);
   }
 
-  public async updateCategory(id: string, updates: Partial<ExpenseCategory>): Promise<ExpenseCategory> {
-    const updated = await this.repository.updateCategory(id, updates);
+  public async updateCategory(id: string, updates: Partial<ExpenseCategory>, actor = 'System'): Promise<ExpenseCategory> {
+    const updated = await this.repository.updateCategory(id, updates, actor);
     if (!updated) {
-      throw new Error('Category record not found.');
+      throw notFound('Category record not found.');
     }
     return updated;
   }
 
-  public async deleteCategory(id: string): Promise<boolean> {
-    return await this.repository.deleteCategory(id);
+  public async deleteCategory(id: string, actor = 'System'): Promise<boolean> {
+    const ok = await this.repository.deleteCategory(id, actor);
+    if (!ok) throw notFound('Category record not found.');
+    return ok;
   }
 }

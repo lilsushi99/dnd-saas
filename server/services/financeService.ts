@@ -41,13 +41,15 @@ export class FinanceService {
    * Errors (bad branch, bad custom range, DB failure) propagate; nothing is defaulted to "looks fine" data.
    */
   public async getFinanceAnalytics(filters?: FinanceReportFilters, nowOverride?: Date): Promise<AnalyticsResult> {
-    const [allBookings, allExpenses, allBranches, allFacilities, tz] = await Promise.all([
+    const [allBookings, allExpenses, allBranches, allFacilities, tz, allCategories] = await Promise.all([
       this.opsRepo.getAllBookings(),
       this.expenseRepo.getAllExpenses(),
       this.adminRepo.getBranches(),
       this.adminRepo.getFacilities(),
       this.getBusinessTimezone(),
+      this.expenseRepo.getCategories(),
     ]);
+    const colorByCategory = new Map(allCategories.map((c) => [c.name.toLowerCase(), c.color]));
 
     const today = todayInTimezone(tz, nowOverride);
     const range = resolveDateRange(filters?.period || 'all', today, { startDate: filters?.startDate, endDate: filters?.endDate, customDates: filters?.customDates });
@@ -157,7 +159,7 @@ export class FinanceService {
       catAgg.set(key, { count: cur.count + 1, cents: cur.cents + x.cents });
     }
     const expenseCategoryBreakdown = [...catAgg.entries()]
-      .map(([category, v]) => ({ category, amount: fromCents(v.cents), percentage: pct(v.cents, expenseCents) }))
+      .map(([category, v]) => ({ category, amount: fromCents(v.cents), percentage: pct(v.cents, expenseCents), color: colorByCategory.get(category.toLowerCase()) }))
       .sort((a, b) => b.amount - a.amount);
     const topExpenseCategories = [...catAgg.entries()]
       .map(([category, v]) => ({ category, count: v.count, totalAmount: fromCents(v.cents) }))

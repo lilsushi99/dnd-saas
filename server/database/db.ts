@@ -258,6 +258,9 @@ export async function ensureDatabaseSchema(): Promise<void> {
         }
         await conn.query(`ALTER TABLE business_settings MODIFY COLUMN business_logo LONGTEXT DEFAULT NULL`);
       }
+      const { runMigrations } = await import('./migrations');
+      await runMigrations(conn);
+
       // Seed the default role matrix. INSERT IGNORE never overwrites a customised role.
       const { DEFAULT_ROLE_PERMISSIONS } = await import('../middleware/auth');
       for (const [role, perms] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {

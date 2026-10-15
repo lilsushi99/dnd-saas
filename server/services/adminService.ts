@@ -1,3 +1,4 @@
+import { notFound } from '../domain/errors';
 import { AdminRepository } from '../repositories/adminRepository';
 import { Branch, Facility, AdminUser, RolePermission, ImportSpreadsheetRow, ImportResultSummary, ColumnMappingItem, ValidationErrorItem } from '../../src/types';
 
@@ -13,25 +14,25 @@ export class AdminService {
     return await this.adminRepo.getBranches();
   }
 
-  public async createBranch(data: { name: string; location: string; status: 'Active' | 'Inactive' }): Promise<Branch> {
+  public async createBranch(data: { name: string; location: string; status: 'Active' | 'Inactive' }, actor = 'System'): Promise<Branch> {
     if (!data.name || !data.location) {
       throw new Error('Branch Name and Location are required.');
     }
-    return await this.adminRepo.createBranch(data);
+    return await this.adminRepo.createBranch(data, actor);
   }
 
-  public async updateBranch(id: string, updates: Partial<Branch>): Promise<Branch> {
-    const updated = await this.adminRepo.updateBranch(id, updates);
+  public async updateBranch(id: string, updates: Partial<Branch>, actor = 'System'): Promise<Branch> {
+    const updated = await this.adminRepo.updateBranch(id, updates, actor);
     if (!updated) {
-      throw new Error('Branch not found.');
+      throw notFound('Branch not found.');
     }
     return updated;
   }
 
-  public async toggleBranchStatus(id: string): Promise<Branch> {
-    const updated = await this.adminRepo.toggleBranchStatus(id);
+  public async toggleBranchStatus(id: string, actor = 'System'): Promise<Branch> {
+    const updated = await this.adminRepo.toggleBranchStatus(id, actor);
     if (!updated) {
-      throw new Error('Branch not found.');
+      throw notFound('Branch not found.');
     }
     return updated;
   }
@@ -41,25 +42,25 @@ export class AdminService {
     return await this.adminRepo.getFacilities();
   }
 
-  public async createFacility(data: { name: string; branchId: string; defaultPrice?: number; status: 'Active' | 'Inactive' }): Promise<Facility> {
+  public async createFacility(data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status: 'Active' | 'Inactive' }, actor = 'System'): Promise<Facility> {
     if (!data.name || !data.branchId) {
       throw new Error('Facility Name and Branch selection are required.');
     }
-    return await this.adminRepo.createFacility(data);
+    return await this.adminRepo.createFacility(data, actor);
   }
 
-  public async updateFacility(id: string, updates: Partial<Facility>): Promise<Facility> {
-    const updated = await this.adminRepo.updateFacility(id, updates);
+  public async updateFacility(id: string, updates: Partial<Facility>, actor = 'System'): Promise<Facility> {
+    const updated = await this.adminRepo.updateFacility(id, updates, actor);
     if (!updated) {
-      throw new Error('Facility not found.');
+      throw notFound('Facility not found.');
     }
     return updated;
   }
 
-  public async deleteFacility(id: string): Promise<boolean> {
-    const success = await this.adminRepo.deleteFacility(id);
+  public async deleteFacility(id: string, actor = 'System'): Promise<boolean> {
+    const success = await this.adminRepo.deleteFacility(id, actor);
     if (!success) {
-      throw new Error('Facility not found.');
+      throw notFound('Facility not found.');
     }
     return true;
   }

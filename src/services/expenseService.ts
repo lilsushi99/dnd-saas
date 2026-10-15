@@ -84,6 +84,7 @@ export class ExpenseApiService {
   public static async createCategory(payload: {
     name: string;
     description?: string;
+    color?: string;
   }): Promise<ExpenseCategory> {
     const data = await this.request<{
       success: boolean;
