@@ -38,7 +38,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
   const searchableItems = [
     // Navigation & Modules
-    { id: 'dashboard', title: 'Executive Dashboard & Overview', category: 'Navigation', icon: 'fa-solid fa-house-chimney' },
+    { id: 'dashboard', title: 'Dashboard', category: 'Navigation', icon: 'fa-solid fa-house-chimney' },
     { id: 'crm', title: 'CRM Account Directory & Client Records', category: 'Sales & CRM', icon: 'fa-solid fa-address-book' },
     { id: 'daily_logger', title: 'Daily Facility Logger & Check-ins', category: 'Operations', icon: 'fa-solid fa-calendar-check' },
     { id: 'facility_records', title: 'Facility Usage Records & Logs', category: 'Operations', icon: 'fa-solid fa-sheet-plastic' },
@@ -95,7 +95,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
         {/* Search Results List */}
         <div className="max-h-96 overflow-y-auto p-2 divide-y divide-gray-50">
-          <div className="px-3 py-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider font-sans">
+          <div className="px-3 py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider font-sans">
             {query ? 'Search Results' : 'Recommended Navigation'}
           </div>
 

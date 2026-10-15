@@ -3,6 +3,8 @@ import { useExpenses } from '../../hooks/useExpenses';
 import { ExpenseModal } from './ExpenseModal';
 import { Expense, Branch } from '../../types';
 import { AdminApiService } from '../../services/adminService';
+import { CustomSelect } from '../common/CustomSelect';
+import { CustomDatePicker } from '../common/CustomDatePicker';
 
 interface ExpensesPageProps {
   branchFilter?: string;
@@ -47,6 +49,26 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
     { id: 'all', label: 'All Branches' },
     ...dbBranches.map((b) => ({ id: b.name, label: b.name })),
     ...(dbBranches.length > 1 ? [{ id: 'Both Branches', label: 'All / Shared Across Branches (Split)' }] : []),
+  ];
+
+  const periodOptions = [
+    { id: 'today', label: 'Today' },
+    { id: 'last_7_days', label: 'Last 7 Days' },
+    { id: 'last_30_days', label: 'Last 30 Days' },
+    { id: 'this_month', label: 'This Month' },
+    { id: 'last_12_months', label: 'Last 12 Months' },
+    { id: 'custom', label: 'Custom Range' },
+    { id: 'all', label: 'All Time' },
+  ];
+
+  const branchFilterOptions = branches.map((b) => ({
+    id: b.id,
+    label: b.label,
+  }));
+
+  const categoryFilterOptions = [
+    { id: 'all', label: 'All Categories' },
+    ...categories.map((c) => ({ id: c.name, label: c.name })),
   ];
 
   const handleOpenAddModal = () => {
@@ -111,34 +133,29 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
   return (
     <div className="space-y-6 font-sans">
       {/* Top Banner / Section Header */}
-      <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-            Expenses Management
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Record, monitor, and split operational expenditures across facility hubs
-          </p>
-        </div>
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-5 sm:p-6 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
+          Expenses Management
+        </h2>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs flex items-center gap-2 cursor-pointer"
+            className="px-3.5 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs flex items-center gap-2 cursor-pointer"
           >
             <i className="fa-solid fa-file-csv text-emerald-600 text-sm"></i>
             Export CSV
           </button>
           <button
             onClick={handleExportExcel}
-            className="px-3.5 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs flex items-center gap-2 cursor-pointer"
+            className="px-3.5 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs flex items-center gap-2 cursor-pointer"
           >
             <i className="fa-solid fa-file-excel text-emerald-600 text-sm"></i>
             Export Excel
           </button>
           <button
             onClick={handleOpenAddModal}
-            className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition-colors flex items-center gap-2 uppercase tracking-wider cursor-pointer"
+            className="px-4 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition-colors flex items-center gap-2 uppercase tracking-wider cursor-pointer"
           >
             <i className="fa-solid fa-plus text-xs"></i>
             New Expense
@@ -151,82 +168,54 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
         {/* Left Controls: Date Filter, Branch, Category */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Date Filter Dropdown */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-              <i className="fa-solid fa-calendar text-blue-600 text-xs"></i>
-              Period:
-            </span>
-            <select
+          <div className="w-40">
+            <CustomSelect
+              options={periodOptions}
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
-            >
-              <option value="today">Today</option>
-              <option value="last_7_days">Last 7 Days</option>
-              <option value="last_30_days">Last 30 Days</option>
-              <option value="this_month">This Month</option>
-              <option value="last_12_months">Last 12 Months</option>
-              <option value="custom">Custom Range</option>
-              <option value="all">All Time</option>
-            </select>
+              onChange={(val) => setDateFilter(String(val))}
+              icon="fa-solid fa-calendar"
+            />
           </div>
 
           {/* Custom Date Pickers */}
           {dateFilter === 'custom' && (
-            <div className="flex items-center gap-2 bg-blue-50/50 p-1.5 rounded-xl border border-blue-100">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-900 font-medium focus:outline-none focus:border-blue-500"
-              />
-              <span className="text-xs text-gray-400 font-bold">to</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-900 font-medium focus:outline-none focus:border-blue-500"
-              />
+            <div className="flex items-center gap-2 bg-blue-50/50 p-1.5 rounded-xl">
+              <div className="w-32">
+                <CustomDatePicker
+                  value={startDate}
+                  onChange={setStartDate}
+                  placeholder="Start Date"
+                />
+              </div>
+              <span className="text-xs text-gray-400 font-medium">to</span>
+              <div className="w-32">
+                <CustomDatePicker
+                  value={endDate}
+                  onChange={setEndDate}
+                  placeholder="End Date"
+                />
+              </div>
             </div>
           )}
 
           {/* Branch Filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-              <i className="fa-solid fa-building text-indigo-600 text-xs"></i>
-              Branch:
-            </span>
-            <select
+          <div className="w-48">
+            <CustomSelect
+              options={branchFilterOptions}
               value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.label}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setBranch(String(val))}
+              icon="fa-solid fa-building"
+            />
           </div>
 
           {/* Dynamic Category Filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-              <i className="fa-solid fa-tags text-purple-600 text-xs"></i>
-              Category:
-            </span>
-            <select
+          <div className="w-48">
+            <CustomSelect
+              options={categoryFilterOptions}
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
-            >
-              <option value="all">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setCategory(String(val))}
+              icon="fa-solid fa-tags"
+            />
           </div>
         </div>
 
@@ -256,73 +245,60 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
         {/* KPI 1: Today's Expenses */}
         <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Today's Expenses</span>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Today's Expenses</span>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
               <i className="fa-solid fa-calendar-day text-sm"></i>
             </div>
           </div>
           <div className="mt-3">
-            <span className="font-heading text-2xl font-bold text-gray-900 tracking-tight">
+            <span className="text-2xl font-semibold text-gray-900 tracking-tight">
               ₦{summary.todaysExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-            <p className="text-[11px] text-gray-500 font-medium mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              Live daily ledger log
-            </p>
           </div>
         </div>
 
         {/* KPI 2: Average Monthly Expenses */}
         <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Average Monthly Expenses</span>
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Average Monthly Expenses</span>
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
               <i className="fa-solid fa-calculator text-sm"></i>
             </div>
           </div>
           <div className="mt-3">
-            <span className="font-heading text-2xl font-bold text-gray-900 tracking-tight">
+            <span className="text-2xl font-semibold text-gray-900 tracking-tight">
               ₦{summary.averageMonthlyExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-            <p className="text-[11px] text-gray-500 font-medium mt-1">Calculated across active months</p>
           </div>
         </div>
 
         {/* KPI 3: Total Expenses */}
         <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Expenses</span>
-            <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Expenses</span>
+            <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
               <i className="fa-solid fa-receipt text-sm"></i>
             </div>
           </div>
           <div className="mt-3">
-            <span className="font-heading text-2xl font-bold text-gray-900 tracking-tight">
+            <span className="text-2xl font-semibold text-gray-900 tracking-tight">
               ₦{summary.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-            <p className="text-[11px] text-gray-500 font-medium mt-1">
-              Filter period cumulative total
-            </p>
           </div>
         </div>
 
         {/* KPI 4: Payroll */}
         <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Payroll</span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Payroll</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
               <i className="fa-solid fa-users-gear text-sm"></i>
             </div>
           </div>
           <div className="mt-3">
-            <span className="font-heading text-2xl font-bold text-gray-900 tracking-tight">
+            <span className="text-2xl font-semibold text-gray-900 tracking-tight">
               ₦{(summary.payrollExpenses || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-            <p className="text-[11px] text-gray-500 font-medium mt-1">
-              {summary.payrollExpenses && summary.payrollExpenses > 0
-                ? 'Aggregated payroll & staff disbursements'
-                : 'No payroll records logged for period'}
-            </p>
           </div>
         </div>
       </div>
@@ -341,10 +317,10 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
           </div>
         ) : expenses.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-200 text-gray-400 flex items-center justify-center mx-auto text-xl mb-3">
+            <div className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 flex items-center justify-center mx-auto text-xl mb-3">
               <i className="fa-solid fa-receipt"></i>
             </div>
-            <h4 className="font-heading font-bold text-gray-800 text-sm">No expenses found</h4>
+            <h4 className="font-medium text-gray-800 text-sm">No expenses found</h4>
             <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
               No expense records match your active search and filter criteria. Click "New Expense" to log one.
             </p>
@@ -353,7 +329,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider font-heading">
+                <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] font-medium text-gray-500 uppercase tracking-wider">
                   <th className="py-3.5 px-5">Expense ID</th>
                   <th className="py-3.5 px-5">Expense Title</th>
                   <th className="py-3.5 px-5">Category</th>
@@ -369,33 +345,28 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
                   const isSplit = e.branch === 'Both Branches';
                   return (
                     <tr key={e.id} className="hover:bg-gray-50/80 transition-colors">
-                      <td className="py-3.5 px-5 font-mono font-bold text-blue-700">{e.id}</td>
+                      <td className="py-3.5 px-5 font-mono font-medium text-blue-700 whitespace-nowrap">{e.id}</td>
                       <td className="py-3.5 px-5">
-                        <div className="font-bold text-gray-900">{e.name}</div>
-                        {e.description && (
-                          <div className="text-[11px] text-gray-400 max-w-xs truncate mt-0.5">
-                            {e.description}
-                          </div>
-                        )}
+                        <div className="font-medium text-gray-900">{e.name}</div>
                       </td>
                       <td className="py-3.5 px-5">
-                        <span className="px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 font-semibold text-[11px] border border-gray-200 inline-block">
+                        <span className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 font-medium text-xs inline-block">
                           {e.category}
                         </span>
                       </td>
                       <td className="py-3.5 px-5">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
                             isSplit
-                              ? 'bg-purple-50 text-purple-700 border-purple-200'
-                              : 'bg-blue-50 text-blue-700 border-blue-200'
+                              ? 'bg-purple-50 text-purple-700'
+                              : 'bg-blue-50 text-blue-700'
                           }`}
                         >
                           {isSplit && <i className="fa-solid fa-code-branch text-[10px]"></i>}
                           {e.branch}
                         </span>
                       </td>
-                      <td className="py-3.5 px-5 text-right font-heading font-bold text-gray-900 text-sm">
+                      <td className="py-3.5 px-5 text-right font-semibold text-gray-900 text-sm whitespace-nowrap">
                         ₦{e.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         {isSplit && branch !== 'all' && branch !== 'Both Branches' && (
                           <span className="block text-[10px] text-purple-600 font-normal">
@@ -404,7 +375,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
                         )}
                       </td>
                       <td className="py-3.5 px-5 font-medium text-gray-600 whitespace-nowrap">{e.date}</td>
-                      <td className="py-3.5 px-5 text-gray-600 font-medium">{e.createdBy || 'Admin'}</td>
+                      <td className="py-3.5 px-5 text-gray-600 font-medium whitespace-nowrap">{e.createdBy || 'Admin'}</td>
                       <td className="py-3.5 px-5 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
@@ -438,8 +409,8 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md p-6 font-sans space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
-                <span className="font-mono text-xs font-bold text-blue-600">{selectedExpense.id}</span>
-                <h3 className="font-heading text-lg font-bold text-gray-900">{selectedExpense.name}</h3>
+                <span className="font-mono text-xs font-medium text-blue-600">{selectedExpense.id}</span>
+                <h3 className="text-lg font-semibold text-gray-900">{selectedExpense.name}</h3>
               </div>
               <button
                 onClick={() => setSelectedExpense(null)}
@@ -452,7 +423,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
             <div className="space-y-2 text-xs text-gray-600">
               <div className="flex justify-between py-1 border-b border-gray-50">
                 <span className="font-medium text-gray-500">Amount:</span>
-                <span className="font-bold text-gray-900 text-sm">
+                <span className="font-semibold text-gray-900 text-sm">
                   ₦{selectedExpense.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </span>
               </div>
@@ -489,14 +460,14 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
                   setSelectedExpense(null);
                   handleOpenEditModal(expToEdit);
                 }}
-                className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-xl uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-xs rounded-xl uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <i className="fa-solid fa-pen-to-square"></i>
                 Edit Expense
               </button>
               <button
                 onClick={() => setSelectedExpense(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider transition-colors cursor-pointer"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs rounded-xl uppercase tracking-wider transition-colors cursor-pointer"
               >
                 Close
               </button>

@@ -128,11 +128,11 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({
         {/* Header - Enterprise Clean Style */}
         <div className="p-4 sm:p-5 border-b border-gray-200/80 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gray-900 text-white flex items-center justify-center font-bold text-sm shadow-2xs">
+            <div className="w-9 h-9 rounded-xl bg-gray-900 text-white flex items-center justify-center font-semibold text-sm shadow-2xs">
               <i className="fa-solid fa-user-tie text-xs"></i>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-900 font-heading">
+              <h2 className="text-sm font-semibold text-gray-900 tracking-tight">
                 Enterprise Business Assistant
               </h2>
               <p className="text-[11px] text-gray-500 font-sans">
@@ -168,7 +168,7 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({
 
                 {msg.actionCard && (
                   <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
-                    <p className="font-bold font-heading text-gray-900 text-[11px] flex items-center gap-1.5">
+                    <p className="font-semibold text-gray-900 text-[11px] flex items-center gap-1.5">
                       <i className="fa-solid fa-chart-line text-blue-600"></i>
                       {msg.actionCard.title}
                     </p>
@@ -202,7 +202,7 @@ export const AIAssistantDrawer: React.FC<AIAssistantDrawerProps> = ({
 
         {/* Suggested Prompts Section */}
         <div className="p-3 bg-white border-t border-gray-100">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2 px-1">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400 mb-2 px-1">
             Suggested Business Queries
           </p>
           <div className="flex flex-wrap gap-1.5">

@@ -391,20 +391,35 @@ export class OperationsRepository {
   public async getNextBookingId(): Promise<string> {
     const bookings = await this.getAllBookings();
     const settings = await this.getSettings();
-    const nextSeq = bookings.length + 1;
-    const year = new Date().getFullYear();
     const prefix = settings.bookingPrefix || 'BK';
-    const branchCode = settings.branchCode || 'IPHIN';
-    return `${prefix}-${branchCode}-${year}-${nextSeq}`;
+
+    let maxSeq = bookings.length;
+    for (const b of bookings) {
+      const match = b.id.match(/\d+$/);
+      if (match) {
+        const num = parseInt(match[0], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+    const nextSeq = maxSeq + 1;
+    return `${prefix}-${String(nextSeq).padStart(3, '0')}`;
   }
 
   public async getNextClientId(): Promise<string> {
     const clients = await this.getClients();
     const settings = await this.getSettings();
-    const nextSeq = clients.length + 1;
     const prefix = settings.clientPrefix || 'CL';
-    const branchCode = settings.branchCode || 'IPHIN';
-    return `${prefix}-${branchCode}-${nextSeq}`;
+
+    let maxSeq = clients.length;
+    for (const c of clients) {
+      const match = c.id.match(/\d+$/);
+      if (match) {
+        const num = parseInt(match[0], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+    const nextSeq = maxSeq + 1;
+    return `${prefix}-${String(nextSeq).padStart(3, '0')}`;
   }
 
   public async addBooking(bookingData: Omit<Booking, 'id' | 'createdAt'>): Promise<Booking> {

@@ -50,7 +50,7 @@ export class FinanceService {
     ]);
 
     const today = todayInTimezone(tz, nowOverride);
-    const range = resolveDateRange(filters?.period || 'all', today, { startDate: filters?.startDate, endDate: filters?.endDate });
+    const range = resolveDateRange(filters?.period || 'all', today, { startDate: filters?.startDate, endDate: filters?.endDate, customDates: filters?.customDates });
     const branchRefs: BranchRef[] = allBranches.map((b) => ({ id: b.id, name: b.name }));
     const selected = resolveBranch(filters?.branch, branchRefs);
     const activeBranchIds = allBranches.filter((b) => b.status === 'Active').map((b) => b.id);
@@ -84,7 +84,7 @@ export class FinanceService {
 
     // ---------------------------------------------------------------- time series
     const spanDays = range.start && range.end ? Math.round((Date.parse(range.end) - Date.parse(range.start)) / 86400000) + 1 : null;
-    const bucketMonthly = spanDays === null || spanDays > 92;
+    const bucketMonthly = !range.dates && (spanDays === null || spanDays > 92);
     const bucketOf = (d: string) => (bucketMonthly ? `${d.substring(0, 7)}-01` : d.substring(0, 10));
 
     const series = new Map<string, { revenue: number; expenses: number; branchRevenues: Record<string, number> }>();
@@ -92,7 +92,9 @@ export class FinanceService {
       if (!series.has(k)) series.set(k, { revenue: 0, expenses: 0, branchRevenues: {} });
       return series.get(k)!;
     };
-    if (!bucketMonthly && range.start && range.end) {
+    if (range.dates) {
+      range.dates.forEach((d) => touch(d)); // only the dates the user picked
+    } else if (!bucketMonthly && range.start && range.end) {
       for (let d = range.start; d <= range.end; d = addDays(d, 1)) touch(d); // continuous daily axis
     }
     for (const b of bookings) {

@@ -74,11 +74,11 @@ export const RoleMatrixModal: React.FC<RoleMatrixModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
               <i className="fa-solid fa-key text-base"></i>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 font-heading">
+              <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
                 Role Permission Matrix
               </h3>
               <p className="text-xs text-gray-500 font-sans">
@@ -102,7 +102,7 @@ export const RoleMatrixModal: React.FC<RoleMatrixModalProps> = ({
                 <th className="px-4 py-3">Module Name</th>
                 {localRoles.map((r) => (
                   <th key={r.role} className="px-4 py-3 text-center">
-                    <span className="px-2.5 py-1 rounded-lg bg-gray-100 font-bold text-gray-900 capitalize border border-gray-200">
+                    <span className="px-2.5 py-1 rounded-lg bg-gray-100 font-medium text-gray-900 capitalize">
                       {r.role}
                     </span>
                   </th>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ActiveSubscription, Customer, Branch, Facility } from '../../types';
 import { AdminApiService } from '../../services/adminService';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
 
 interface ActiveSubscriptionsPageProps {
   subscriptions: ActiveSubscription[];
@@ -63,7 +64,7 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-bold text-gray-900 tracking-tight">
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
             Active Subscriptions & Pass Ledger
           </h1>
           <p className="text-xs text-gray-500 mt-1">
@@ -75,7 +76,7 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
         <div className="flex items-center gap-2">
           <button
             onClick={onExportCSV}
-            className="px-3.5 py-2 bg-white border border-gray-200 hover:border-blue-300 text-gray-700 hover:text-blue-600 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-2 cursor-pointer"
+            className="px-3.5 py-2 bg-white border border-gray-200 hover:border-blue-300 text-gray-700 hover:text-blue-600 rounded-xl text-xs font-medium transition-all shadow-2xs flex items-center gap-2 cursor-pointer"
           >
             <i className="fa-solid fa-file-csv text-emerald-600 text-sm"></i>
             <span>Export CSV</span>
@@ -83,7 +84,7 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
 
           <button
             onClick={onExportExcel}
-            className="px-3.5 py-2 bg-white border border-gray-200 hover:border-blue-300 text-gray-700 hover:text-blue-600 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-2 cursor-pointer"
+            className="px-3.5 py-2 bg-white border border-gray-200 hover:border-blue-300 text-gray-700 hover:text-blue-600 rounded-xl text-xs font-medium transition-all shadow-2xs flex items-center gap-2 cursor-pointer"
           >
             <i className="fa-solid fa-file-excel text-emerald-700 text-sm"></i>
             <span>Export Excel</span>
@@ -93,59 +94,59 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
 
       {/* Summary Chips */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-4 flex items-center justify-between">
+        <div className="bg-emerald-50/70 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
               <i className="fa-solid fa-circle-check"></i>
             </div>
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-800">
                 Active Passes
               </span>
-              <div className="font-heading text-xl font-bold text-emerald-950">
+              <div className="text-xl font-semibold text-emerald-950">
                 {activeCount} Subscriptions
               </div>
             </div>
           </div>
-          <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
+          <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-medium">
             Green Status
           </span>
         </div>
 
-        <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-4 flex items-center justify-between">
+        <div className="bg-amber-50/70 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold">
-              <i className="fa-solid fa-clock font-bold"></i>
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center">
+              <i className="fa-solid fa-clock"></i>
             </div>
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-amber-800">
                 Expiring Soon (≤ 5 Days)
               </span>
-              <div className="font-heading text-xl font-bold text-amber-950">
+              <div className="text-xl font-semibold text-amber-950">
                 {expiringSoonCount} Subscriptions
               </div>
             </div>
           </div>
-          <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
+          <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
             Orange Status
           </span>
         </div>
 
-        <div className="bg-rose-50/60 border border-rose-200/80 rounded-2xl p-4 flex items-center justify-between">
+        <div className="bg-rose-50/70 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center">
               <i className="fa-solid fa-circle-xmark"></i>
             </div>
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-rose-800">
                 Expired Subscriptions
               </span>
-              <div className="font-heading text-xl font-bold text-rose-950">
+              <div className="text-xl font-semibold text-rose-950">
                 {expiredCount} Subscriptions
               </div>
             </div>
           </div>
-          <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 text-xs font-bold">
+          <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 text-xs font-medium">
             Red Status
           </span>
         </div>
@@ -168,48 +169,46 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
 
           {/* Filter Branch */}
           <div>
-            <select
+            <CustomSelect
+              options={[
+                { id: 'all', label: 'All Branches' },
+                ...branches.map((b) => ({ id: b.name, label: b.name })),
+              ]}
               value={branch}
-              onChange={(e) => onBranchChange(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-semibold text-gray-800 outline-none cursor-pointer transition-all"
-            >
-              <option value="all">All Branches</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.name}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => onBranchChange(String(val))}
+              placeholder="All Branches"
+              className="!py-2 !px-3"
+            />
           </div>
 
           {/* Filter Facility */}
           <div>
-            <select
+            <CustomSelect
+              options={[
+                { id: 'all', label: 'All Facilities' },
+                ...facilities.map((f) => ({ id: f.name, label: f.name })),
+              ]}
               value={facility}
-              onChange={(e) => onFacilityChange(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-semibold text-gray-800 outline-none cursor-pointer transition-all"
-            >
-              <option value="all">All Facilities</option>
-              {facilities.map((f) => (
-                <option key={f.id} value={f.name}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => onFacilityChange(String(val))}
+              placeholder="All Facilities"
+              className="!py-2 !px-3"
+            />
           </div>
 
           {/* Filter Days Remaining */}
           <div>
-            <select
+            <CustomSelect
+              options={[
+                { id: 'all', label: 'All Expirations' },
+                { id: 'expiring_soon', label: 'Expiring Soon (≤ 5 Days)' },
+                { id: 'active', label: 'Active (> 5 Days)' },
+                { id: 'expired', label: 'Expired (0 Days)' },
+              ]}
               value={daysRemaining}
-              onChange={(e) => onDaysRemainingChange(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-semibold text-gray-800 outline-none cursor-pointer transition-all"
-            >
-              <option value="all">All Expirations</option>
-              <option value="expiring_soon">Expiring Soon (≤ 5 Days)</option>
-              <option value="active">Active (&gt; 5 Days)</option>
-              <option value="expired">Expired (0 Days)</option>
-            </select>
+              onChange={(val) => onDaysRemainingChange(String(val))}
+              placeholder="All Expirations"
+              className="!py-2 !px-3"
+            />
           </div>
 
           {/* Filter Date */}
@@ -245,7 +244,7 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50/80 border-b border-gray-200/80 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                <tr className="bg-gray-50/80 border-b border-gray-200/80 text-[11px] font-medium uppercase tracking-wider text-gray-500">
                   <th className="py-3.5 px-4">Customer</th>
                   <th className="py-3.5 px-4">Facility</th>
                   <th className="py-3.5 px-4">Branch</th>
@@ -265,10 +264,10 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
                   >
                     {/* Customer */}
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-gray-900 group-hover:text-blue-700">
+                      <div className="font-medium text-gray-900 group-hover:text-blue-700">
                         {sub.customerName}
                       </div>
-                      <div className="text-[10px] text-blue-600 font-mono font-semibold">
+                      <div className="text-[10px] text-blue-600 font-mono font-medium">
                         {sub.customerId}
                       </div>
                     </td>
@@ -283,12 +282,12 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
                     <td className="py-3.5 px-4 text-gray-600">{sub.startDate}</td>
 
                     {/* End Date */}
-                    <td className="py-3.5 px-4 font-bold text-gray-900">{sub.endDate}</td>
+                    <td className="py-3.5 px-4 font-medium text-gray-900">{sub.endDate}</td>
 
                     {/* Days Remaining */}
                     <td className="py-3.5 px-4 text-center">
                       <span
-                        className={`font-heading text-sm font-bold ${
+                        className={`text-sm font-semibold ${
                           sub.daysRemaining <= 0
                             ? 'text-rose-600'
                             : sub.daysRemaining <= 5
@@ -300,15 +299,15 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
                       </span>
                     </td>
 
-                    {/* Colored Status Badges: Green (Active), Orange (Expiring Soon), Red (Expired) */}
+                    {/* Colored Status Badges: Green (Active), Orange (Expiring Soon), Red (Expired) - borderless soft pills */}
                     <td className="py-3.5 px-4 text-center">
                       <span
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shadow-2xs ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
                           sub.status === 'Active'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                            ? 'bg-emerald-50 text-emerald-700'
                             : sub.status === 'Expiring Soon'
-                            ? 'bg-amber-50 text-amber-800 border border-amber-300'
-                            : 'bg-rose-50 text-rose-700 border border-rose-300'
+                            ? 'bg-amber-50 text-amber-800'
+                            : 'bg-rose-50 text-rose-700'
                         }`}
                       >
                         <span
@@ -331,7 +330,7 @@ export const ActiveSubscriptionsPage: React.FC<ActiveSubscriptionsPageProps> = (
                           e.stopPropagation();
                           onSelectCustomer(sub.customerId);
                         }}
-                        className="px-3 py-1 bg-white border border-gray-200 group-hover:border-blue-500 text-gray-700 group-hover:text-blue-600 rounded-lg text-xs font-bold transition-all shadow-2xs hover:bg-blue-50 cursor-pointer"
+                        className="px-3 py-1 bg-white border border-gray-200 group-hover:border-blue-500 text-gray-700 group-hover:text-blue-600 rounded-lg text-xs font-medium transition-all shadow-2xs hover:bg-blue-50 cursor-pointer"
                       >
                         View Profile
                       </button>

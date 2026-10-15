@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Facility, Branch } from '../../types';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
 
 interface FacilityModalProps {
   isOpen: boolean;
@@ -41,6 +42,11 @@ export const FacilityModal: React.FC<FacilityModalProps> = ({
     setError(null);
   }, [initialData, isOpen, branches]);
 
+  const branchOptions: SelectOption[] = branches.map((b) => ({
+    id: b.id,
+    label: `${b.name} (${b.location})`,
+  }));
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,11 +81,11 @@ export const FacilityModal: React.FC<FacilityModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
               <i className="fa-solid fa-house-signal text-base"></i>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 font-heading">
+              <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
                 {initialData ? 'Edit Facility' : 'Create New Facility'}
               </h3>
               <p className="text-xs text-gray-500 font-sans">
@@ -122,18 +128,12 @@ export const FacilityModal: React.FC<FacilityModalProps> = ({
             <label className="block text-xs font-medium text-gray-700 mb-1.5">
               Assigned Branch <span className="text-red-500">*</span>
             </label>
-            <select
+            <CustomSelect
+              options={branchOptions}
               value={branchId}
-              onChange={(e) => setBranchId(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all cursor-pointer"
-              required
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} ({b.location})
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setBranchId(String(val))}
+              placeholder="Select branch"
+            />
             <p className="text-[11px] text-gray-400 mt-1">Each Facility belongs strictly to ONE Branch.</p>
           </div>
 
@@ -190,8 +190,7 @@ export const FacilityModal: React.FC<FacilityModalProps> = ({
                   onChange={() => setStatus('Active')}
                   className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-gray-300"
                 />
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
                   Active
                 </span>
               </label>
@@ -204,8 +203,7 @@ export const FacilityModal: React.FC<FacilityModalProps> = ({
                   onChange={() => setStatus('Inactive')}
                   className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-gray-300"
                 />
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                   Inactive
                 </span>
               </label>

@@ -15,9 +15,16 @@ if (fs.existsSync(envPath)) {
     console.log('✅ [Config] Loaded .env file');
   }
 } else {
-  console.warn(`⚠️ [Config Warning] .env file not found at ${envPath}`);
+  // Development convenience only: seed defaults from .env.example WITHOUT overriding real environment variables.
+  // Never done in production (placeholder values must not become real configuration).
+  const examplePath = path.resolve(cwd, '.env.example');
+  if (process.env.NODE_ENV !== 'production' && fs.existsSync(examplePath)) {
+    dotenv.config({ path: examplePath, override: false });
+    console.log('ℹ️ [Config] No .env found; using development defaults from .env.example');
+  } else {
+    console.warn(`⚠️ [Config Warning] .env file not found at ${envPath}`);
+  }
 }
-
 
 export interface AppConfig {
   env: 'development' | 'production' | 'test' | string;
@@ -59,7 +66,8 @@ export function validateAndLoadConfig(): AppConfig {
   const env = isProd ? 'production' : (process.env.NODE_ENV || 'development');
   process.env.NODE_ENV = env;
 
-  const port = parseInt(process.env.PORT || '3000', 10);
+  // AI Studio's preview proxy expects 3000 (the default); hosts that assign a port via PORT are respected.
+  const port = parseInt(process.env.PORT || '3000', 10) || 3000;
   const appName = process.env.APP_NAME || 'Nexus ERP Enterprise';
   const appUrl = process.env.APP_URL || `http://localhost:${port}`;
   const clientUrl = process.env.CLIENT_URL || `http://localhost:${port}`;

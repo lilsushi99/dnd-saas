@@ -72,23 +72,19 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
   }, [selectedBranch, selectedRange, filters?.startDate, filters?.endDate]);
 
   return (
-    <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs font-sans flex flex-col justify-between h-full min-h-[380px]">
+    <div className="bg-white rounded-xl p-6 shadow-xs font-sans flex flex-col justify-between h-full min-h-[380px]">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-3">
         <div>
-          <h3 className="font-heading text-sm font-bold text-gray-900 leading-none flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+          <h3 className="font-heading text-base font-semibold text-gray-900 leading-none">
             Expense Overview
           </h3>
-          <p className="text-[11px] font-medium text-gray-500 mt-1">
-            Categorized operational expenditure breakdown
-          </p>
         </div>
         <div className="text-right">
-          <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 block">
+          <span className="text-xs font-normal text-gray-500 block">
             Total Operating Expenses
           </span>
-          <span className="text-sm font-bold text-gray-900 font-mono">
+          <span className="text-sm font-semibold text-gray-900 font-heading mt-0.5 block">
             ₦{totalExpense.toLocaleString()}
           </span>
         </div>
@@ -98,8 +94,8 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
       <div className="relative flex-1 flex items-center justify-center min-h-[190px]">
         {categories.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center p-6">
-            <div className="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 mb-2">
-              <i className="fa-solid fa-receipt text-base"></i>
+            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 mb-2">
+              <i className="fa-solid fa-receipt text-sm"></i>
             </div>
             <p className="text-xs font-semibold text-gray-600">No Expenses Recorded</p>
             <p className="text-[11px] text-gray-400 mt-0.5">Operating expenses for this timeframe are currently zero.</p>
@@ -138,10 +134,10 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
 
             {/* Center Donut Label */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              <span className="text-[10px] font-normal text-gray-400">
                 Categories
               </span>
-              <span className="text-xs font-bold text-gray-900 font-heading">
+              <span className="text-xs font-semibold text-gray-900 font-heading mt-0.5">
                 {categories.length} Items
               </span>
             </div>
@@ -149,30 +145,30 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
         )}
       </div>
 
-      {/* Custom Category Grid Legend */}
+      {/* Category Grid Legend */}
       {categories.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100 max-h-[140px] overflow-y-auto pr-1 custom-scrollbar">
+        <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100 max-h-[140px] overflow-y-auto pr-1">
           {categories.map((item, idx) => {
             const percent = totalExpense > 0 ? ((item.value / totalExpense) * 100).toFixed(1) : '0';
             return (
               <div
                 key={idx}
-                className="flex items-center justify-between p-2 rounded-xl bg-gray-50/80 border border-gray-100 hover:bg-gray-100/80 transition-colors"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50/80 hover:bg-gray-100/70 transition-colors"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-[11px] font-medium text-gray-700 truncate">
+                  <span className="text-xs font-normal text-gray-700 truncate">
                     {item.name}
                   </span>
                 </div>
                 <div className="text-right shrink-0 pl-1">
-                  <span className="text-[11px] font-bold text-gray-900 font-mono block leading-none">
+                  <span className="text-xs font-medium text-gray-900 font-heading block leading-none">
                     ₦{item.value.toLocaleString()}
                   </span>
-                  <span className="text-[9px] text-gray-400 font-medium">
+                  <span className="text-[10px] text-gray-400 font-normal">
                     {percent}%
                   </span>
                 </div>

@@ -320,3 +320,15 @@ skipIfNoDb('database failures surface as 5xx with a generic message, never as em
     await executeQuery(`RENAME TABLE bookings_bak TO bookings`);
   }
 });
+
+skipIfNoDb('analytics: non-contiguous customDates select exactly the picked days', async () => {
+  _resetLoginLimiterForTests();
+  const t = (await login('director@test.local')).json.token;
+  const today = todayInTimezone('UTC');
+  const both = (await api('GET', `/api/finance/analytics?period=custom&customDates=${today},2020-01-15`, { token: t })).json.analytics;
+  assert.equal(both.totalRevenue, 2200.3 + 400);
+  const old = (await api('GET', '/api/finance/analytics?period=custom&customDates=2020-01-15', { token: t })).json.analytics;
+  assert.equal(old.totalRevenue, 400);
+  assert.deepEqual(old.revenueVsExpensesChart.map((p: any) => p.date), ['2020-01-15']);
+  assert.equal((await api('GET', '/api/finance/analytics?period=custom&customDates=2020-13-45', { token: t })).status, 400);
+});

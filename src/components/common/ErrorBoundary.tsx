@@ -36,11 +36,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return (
         <div className="p-6 bg-red-50/80 border border-red-200/80 rounded-2xl text-red-900 my-4 shadow-2xs font-sans">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-xl bg-red-100 text-red-600 flex items-center justify-center font-bold text-sm shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-red-100 text-red-600 flex items-center justify-center font-semibold text-sm shrink-0">
               <i className="fa-solid fa-triangle-exclamation"></i>
             </div>
             <div>
-              <h3 className="font-heading text-sm font-bold text-red-900">
+              <h3 className="text-sm font-semibold text-red-900 tracking-tight">
                 {this.props.fallbackTitle || 'A module error occurred'}
               </h3>
               <p className="text-xs text-red-700">
@@ -58,14 +58,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="mt-4 flex items-center gap-3">
             <button
               onClick={this.handleRetry}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-2"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-2"
             >
               <i className="fa-solid fa-rotate-right"></i>
               <span>Reload Module</span>
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-white hover:bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+              className="px-4 py-2 bg-white hover:bg-red-50 border border-red-200 text-red-700 text-xs font-medium rounded-xl transition-colors cursor-pointer"
             >
               Reload Page
             </button>

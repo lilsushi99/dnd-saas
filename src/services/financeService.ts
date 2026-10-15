@@ -11,6 +11,9 @@ export class FinanceApiService {
     if (filters?.period) query.set('period', filters.period);
     if (filters?.startDate) query.set('startDate', filters.startDate);
     if (filters?.endDate) query.set('endDate', filters.endDate);
+    if (filters?.customDates && filters.customDates.length > 0) {
+      query.set('customDates', filters.customDates.join(','));
+    }
     if (filters?.branch && filters.branch !== 'all') query.set('branch', filters.branch);
 
     const data = await this.request<{

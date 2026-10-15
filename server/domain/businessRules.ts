@@ -58,6 +58,8 @@ export interface DateRange {
   /** inclusive YYYY-MM-DD, null = unbounded */
   start: string | null;
   end: string | null;
+  /** Explicit, possibly non-contiguous set of dates (the "custom dates" picker). When present it is authoritative. */
+  dates?: string[];
 }
 
 const PERIOD_ALIASES: Record<string, PeriodKey> = {
@@ -114,7 +116,7 @@ export function todayInTimezone(timezone: string | undefined, now: Date = new Da
 export function resolveDateRange(
   period: string | undefined,
   today: string,
-  custom?: { startDate?: string; endDate?: string }
+  custom?: { startDate?: string; endDate?: string; customDates?: string[] }
 ): DateRange {
   const key = normalizePeriod(period);
   switch (key) {
@@ -141,7 +143,14 @@ export function resolveDateRange(
     case 'full_year':
       return { start: `${today.slice(0, 4)}-01-01`, end: `${today.slice(0, 4)}-12-31` };
     case 'custom': {
-      const { startDate, endDate } = custom || {};
+      const { startDate, endDate, customDates } = custom || {};
+      if (customDates && customDates.length > 0) {
+        if (customDates.length > 366 || !customDates.every(isIsoDate)) {
+          throw new Error('A valid custom date range: customDates must be up to 366 dates formatted YYYY-MM-DD.');
+        }
+        const dates = [...new Set(customDates)].sort();
+        return { start: dates[0], end: dates[dates.length - 1], dates };
+      }
       if (!isIsoDate(startDate) || !isIsoDate(endDate)) {
         throw new Error('A valid custom date range (startDate and endDate as YYYY-MM-DD) is required.');
       }
@@ -153,6 +162,7 @@ export function resolveDateRange(
 
 export function inRange(date: string, range: DateRange): boolean {
   const d = String(date).substring(0, 10);
+  if (range.dates) return range.dates.includes(d);
   if (range.start && d < range.start) return false;
   if (range.end && d > range.end) return false;
   return true;

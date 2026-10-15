@@ -19,22 +19,19 @@ export const FacilityAnalyticsTable: React.FC<FacilityAnalyticsTableProps> = ({ 
       : 'N/A';
 
   return (
-    <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs font-sans">
+    <div className="bg-white rounded-xl p-6 shadow-xs font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h3 className="font-heading text-lg font-bold text-gray-900 tracking-tight">
-            Facility Financial & Operational Analytics
+          <h3 className="font-heading text-base font-semibold text-gray-900 tracking-tight">
+            Facility Analytics
           </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Aggregated system performance ledger derived automatically from Daily Logger receipts
-          </p>
         </div>
       </div>
 
       {/* Analytics Table */}
       <div className="overflow-x-auto rounded-xl border border-gray-200/80">
         <table className="w-full text-left text-xs">
-          <thead className="bg-gray-50/80 border-b border-gray-200/80 text-gray-500 font-bold uppercase tracking-wider">
+          <thead className="bg-gray-50/80 border-b border-gray-200/80 text-gray-500 font-medium uppercase tracking-wider">
             <tr>
               <th scope="col" className="py-3 px-4">
                 Facility Name
@@ -57,7 +54,7 @@ export const FacilityAnalyticsTable: React.FC<FacilityAnalyticsTableProps> = ({ 
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-gray-100 font-medium text-gray-800 bg-white">
+          <tbody className="divide-y divide-gray-100 font-normal text-gray-800 bg-white">
             {records.length === 0 ? (
               <tr>
                 <td colSpan={6} className="py-8 px-4 text-center text-xs text-gray-400">
@@ -68,13 +65,13 @@ export const FacilityAnalyticsTable: React.FC<FacilityAnalyticsTableProps> = ({ 
             ) : (
               records.map((r, idx) => (
                 <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
-                  <td className="py-3.5 px-4 font-bold text-gray-900 font-heading">
+                  <td className="py-3.5 px-4 font-medium text-gray-900">
                     {r.facility}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-semibold text-gray-800">
+                  <td className="py-3.5 px-4 text-right text-gray-800">
                     {r.bookings.toLocaleString()}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-bold text-gray-900 font-heading">
+                  <td className="py-3.5 px-4 text-right font-semibold text-gray-900">
                     ₦{r.revenue.toLocaleString()}
                   </td>
                   <td className="py-3.5 px-4 text-gray-600">
@@ -83,11 +80,11 @@ export const FacilityAnalyticsTable: React.FC<FacilityAnalyticsTableProps> = ({ 
                       {r.branch}
                     </span>
                   </td>
-                  <td className="py-3.5 px-4 text-right font-semibold text-gray-800 font-heading">
+                  <td className="py-3.5 px-4 text-right text-gray-800">
                     ₦{r.averageRevenue.toLocaleString()}
                   </td>
                   <td className="py-3.5 px-4 text-right">
-                    <span className="font-bold text-blue-600">
+                    <span className="font-medium text-blue-600">
                       {typeof r.occupancy === 'number' ? `${r.occupancy}%` : r.occupancy}
                     </span>
                   </td>
@@ -97,9 +94,9 @@ export const FacilityAnalyticsTable: React.FC<FacilityAnalyticsTableProps> = ({ 
           </tbody>
 
           {/* SUMMARY TOTAL ROW */}
-          <tfoot className="bg-gray-100/90 border-t-2 border-gray-300 font-bold text-gray-900">
+          <tfoot className="bg-gray-100/90 border-t-2 border-gray-300 font-semibold text-gray-900">
             <tr>
-              <td className="py-3.5 px-4 uppercase tracking-wider text-xs font-heading">
+              <td className="py-3.5 px-4 uppercase tracking-wider text-xs font-semibold">
                 Total Enterprise Summary
               </td>
               <td className="py-3.5 px-4 text-right font-heading text-sm">

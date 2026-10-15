@@ -133,3 +133,11 @@ test('occupancy status thresholds match the dashboard legend', () => {
   assert.equal(occupancyStatus(100), 'Full');
   assert.equal(occupancyStatus(120), 'Full');
 });
+
+test('customDates: non-contiguous picks are authoritative and validated', () => {
+  const r = resolveDateRange('custom', '2026-10-14', { customDates: ['2026-10-05', '2026-10-01', '2026-10-05'] });
+  assert.deepEqual(r.dates, ['2026-10-01', '2026-10-05']);
+  assert.equal(inRange('2026-10-05', r), true);
+  assert.equal(inRange('2026-10-03', r), false); // inside min..max but not picked
+  assert.throws(() => resolveDateRange('custom', '2026-10-14', { customDates: ['2026-13-01'] }));
+});

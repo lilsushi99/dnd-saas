@@ -87,7 +87,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
         </div>
 
         <div className="relative z-10 my-auto max-w-md">
-          <h1 className="font-heading text-3xl font-bold tracking-tight text-gray-900 leading-tight mb-4">
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 leading-tight mb-4">
             Nexus ERP
           </h1>
 
@@ -122,7 +122,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
-              <h2 className="font-heading text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight">
                 Create Account
               </h2>
               <button

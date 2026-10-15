@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Booking, Branch, Facility } from '../../types';
 import { AdminApiService } from '../../services/adminService';
+import { CustomDatePicker } from '../common/CustomDatePicker';
+import { CustomSelect } from '../common/CustomSelect';
 
 interface EditBookingModalProps {
   isOpen: boolean;
@@ -90,23 +92,48 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     }
   };
 
+  const branchOptions = branches.map((b) => ({
+    id: b.name,
+    label: b.name,
+  }));
+
+  const facilityOptions = facilities.map((f) => ({
+    id: f.name,
+    label: f.name,
+    subLabel: `Capacity: ${f.capacity} • ₦${f.defaultPrice.toLocaleString()}/day`,
+  }));
+
+  const paymentOptions = [
+    { id: 'Wire Transfer', label: 'Wire Transfer' },
+    { id: 'Credit Card', label: 'Credit Card' },
+    { id: 'Cash', label: 'Cash' },
+    { id: 'Corporate Billing', label: 'Corporate Billing' },
+  ];
+
+  const statusOptions = [
+    { id: 'Active', label: 'Active' },
+    { id: 'Upcoming', label: 'Upcoming' },
+    { id: 'Expired', label: 'Expired' },
+    { id: 'Cancelled', label: 'Cancelled' },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-xs flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-md">
+              <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-lg">
                 {booking.id}
               </span>
-              <span className="text-[10px] uppercase font-bold text-gray-400">Permanent Booking ID</span>
             </div>
-            <h3 className="font-heading text-lg font-bold text-gray-900 mt-1">
+            <h3 className="text-base font-semibold text-gray-900 mt-1">
               Edit Booking Record
             </h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors cursor-pointer"
           >
@@ -115,193 +142,155 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 flex-1">
-          {/* Client Details Section */}
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+          {/* Customer Information */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">
               Customer Information
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Client / Company Name</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Client Name *</label>
                 <input
                   type="text"
                   required
                   value={formData.clientName}
                   onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Phone Number</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Phone Number *</label>
                 <input
                   type="text"
                   required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Email Address</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Email Address</label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
                 />
               </div>
             </div>
           </div>
 
-          {/* Booking & Facility Details */}
+          {/* Facility & Location */}
           <div className="space-y-3 pt-2">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">
               Facility & Location
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Branch Location</label>
-                <select
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Branch Location</label>
+                <CustomSelect
+                  options={branchOptions}
                   value={formData.branch}
-                  onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none cursor-pointer transition-all"
-                >
-                  {formData.branch && !branches.some((b) => b.name === formData.branch) && (
-                    <option value={formData.branch}>{formData.branch}</option>
-                  )}
-                  {branches.length > 0 ? (
-                    branches.map((b) => (
-                      <option key={b.id} value={b.name}>
-                        {b.name}
-                      </option>
-                    ))
-                  ) : (
-                    !formData.branch && <option value="">No branches found</option>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Facility Type</label>
-                <select
-                  value={formData.facility}
-                  onChange={(e) => setFormData({ ...formData, facility: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none cursor-pointer transition-all"
-                >
-                  {formData.facility && !facilities.some((f) => f.name === formData.facility) && (
-                    <option value={formData.facility}>{formData.facility}</option>
-                  )}
-                  {facilities.length > 0 ? (
-                    facilities.map((f) => (
-                      <option key={f.id} value={f.name}>
-                        {f.name}
-                      </option>
-                    ))
-                  ) : (
-                    !formData.facility && <option value="">No facilities found</option>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Booking Date</label>
-                <input
-                  type="date"
-                  required
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none transition-all"
+                  onChange={(val) => setFormData({ ...formData, branch: val })}
+                  placeholder="Select branch"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Time Schedule</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Facility Type</label>
+                <CustomSelect
+                  options={facilityOptions}
+                  value={formData.facility}
+                  onChange={(val) => setFormData({ ...formData, facility: val })}
+                  placeholder="Select facility"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Booking Date</label>
+                <CustomDatePicker
+                  value={formData.date}
+                  onChange={(val) => setFormData({ ...formData, date: val })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Time Schedule</label>
                 <input
                   type="text"
                   value={formData.timeDuration}
                   onChange={(e) => setFormData({ ...formData, timeDuration: e.target.value })}
                   placeholder="e.g. 09:00 AM - 05:00 PM"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
                 />
               </div>
             </div>
           </div>
 
-          {/* Duration & Payment */}
+          {/* Payment & Duration */}
           <div className="space-y-3 pt-2">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100 pb-1">
               Payment & Duration
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Amount (₦)</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Amount (₦)</label>
                 <input
                   type="number"
                   required
                   min="0"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-bold text-emerald-600 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-emerald-600 font-heading focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Payment Method</label>
-                <select
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Payment Method</label>
+                <CustomSelect
+                  options={paymentOptions}
                   value={formData.paymentMethod}
-                  onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as any })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none cursor-pointer transition-all"
-                >
-                  <option value="Wire Transfer">Wire Transfer</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="Company Cheque">Company Cheque</option>
-                  <option value="Cash Deposit">Cash Deposit</option>
-                  <option value="Corporate Direct Debit">Corporate Direct Debit</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, paymentMethod: val })}
+                />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Status</label>
-                <select
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Status</label>
+                <CustomSelect
+                  options={statusOptions}
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none cursor-pointer transition-all"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Upcoming">Upcoming</option>
-                  <option value="Expired">Expired</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, status: val })}
+                />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Total Days</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Total Days</label>
                 <input
                   type="number"
                   min="1"
                   value={formData.daysCount}
                   onChange={(e) => setFormData({ ...formData, daysCount: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Days Used</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Days Used</label>
                 <input
                   type="number"
                   min="0"
                   value={formData.daysUsed}
                   onChange={(e) => setFormData({ ...formData, daysUsed: Number(e.target.value) })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-medium text-gray-900 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-gray-700 mb-1">Days Left (Auto)</label>
-                <div className="px-3 py-2 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-700">
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Days Left</label>
+                <div className="px-3.5 py-2.5 bg-gray-100 rounded-xl text-xs font-medium text-gray-700">
                   {Math.max(0, formData.daysCount - formData.daysUsed)} Days
                 </div>
               </div>
@@ -309,27 +298,27 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
           </div>
 
           {/* Modal Actions */}
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-2">
+          <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-medium transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shadow-sm shadow-blue-600/20"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium transition-colors cursor-pointer flex items-center gap-2 shadow-xs disabled:opacity-50"
             >
               {submitting ? (
                 <>
-                  <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                  <i className="fa-solid fa-circle-notch fa-spin text-xs"></i>
                   <span>Saving...</span>
                 </>
               ) : (
                 <>
-                  <i className="fa-solid fa-floppy-disk text-xs"></i>
+                  <i className="fa-solid fa-check text-xs"></i>
                   <span>Save Changes</span>
                 </>
               )}

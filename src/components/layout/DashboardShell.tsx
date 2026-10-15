@@ -48,64 +48,14 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [filters, setFilters] = useState<DashboardFilters>({
     branch: 'all',
-    dateRange: 'all',
+    dateRange: 'last_7',
     compareBranches: false,
   });
 
   const customerState = useCustomers(filters.branch);
 
-  const getPageTitle = (id: string) => {
-    switch (id) {
-      case 'dashboard':
-        return 'Executive Dashboard';
-      case 'daily_logger':
-      case 'bookings':
-        return 'Daily Logger Workspace';
-      case 'facility_records':
-        return 'Facility Records & Yield Sheet';
-      case 'crm':
-      case 'crm_accounts':
-      case 'customers':
-        return 'CRM Customer Directory';
-      case 'communications':
-        return 'Communications Centre';
-      case 'inventory':
-        return 'Inventory Management';
-      case 'logistics':
-        return 'Logistics & Supply';
-      case 'leads':
-        return 'Lead Pipeline';
-      case 'support':
-        return 'Customer Support';
-      case 'ledger':
-        return 'General Ledger';
-      case 'expenses':
-        return 'Expenses Management';
-      case 'reports':
-        return 'Reports & Analytics';
-      case 'invoices':
-        return 'Invoices & Billing';
-      case 'payments':
-        return 'Payment Gateways';
-      case 'branches':
-        return 'Branches Management';
-      case 'facilities':
-        return 'Facilities & Spaces';
-      case 'expense_categories':
-        return 'Expense Categories Administration';
-      case 'users_roles':
-      case 'user_mgmt':
-      case 'roles':
-        return 'Users & Roles Administration';
-      case 'import_wizard':
-        return 'Excel & CSV Import Wizard';
-      case 'logs':
-        return 'System Logs';
-      case 'settings':
-        return 'Settings';
-      default:
-        return 'Executive Dashboard';
-    }
+  const getPageTitle = (_id: string) => {
+    return 'Dashboard';
   };
 
   const handleExport = async (format: 'csv' | 'pdf') => {
@@ -283,26 +233,26 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                 <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] opacity-30 pointer-events-none" />
 
                 <div className="relative z-10 max-w-lg mx-auto flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center text-2xl mb-6 shadow-xs">
+                  <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-6 shadow-xs">
                     <i className="fa-solid fa-cubes-stacked"></i>
                   </div>
 
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold uppercase tracking-wider mb-4 border border-blue-100">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium uppercase tracking-wider mb-4">
                     <i className="fa-solid fa-cube text-[10px]"></i>
                     {getPageTitle(activeNavItem)} Module
                   </div>
 
-                  <h3 className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight mb-2">
+                  <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight mb-2">
                     {getPageTitle(activeNavItem)} Workspace
                   </h3>
 
                   <p className="text-sm text-gray-500 leading-relaxed mb-8">
                     This workspace is connected to the unified filter bar. Select{' '}
-                    <strong className="text-blue-600 font-semibold cursor-pointer" onClick={() => onSelectNavItem('crm')}>
+                    <strong className="text-blue-600 font-medium cursor-pointer" onClick={() => onSelectNavItem('crm')}>
                       CRM Directory
                     </strong>{' '}
                     or{' '}
-                    <strong className="text-blue-600 font-semibold cursor-pointer" onClick={() => onSelectNavItem('active_subscriptions')}>
+                    <strong className="text-blue-600 font-medium cursor-pointer" onClick={() => onSelectNavItem('active_subscriptions')}>
                       Active Subscriptions
                     </strong>{' '}
                     in the sidebar to inspect the Customer module.
@@ -310,7 +260,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
 
                   <button
                     onClick={() => onSelectNavItem('dashboard')}
-                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-sm shadow-blue-600/20 cursor-pointer"
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium flex items-center gap-2 transition-all shadow-sm shadow-blue-600/20 cursor-pointer"
                   >
                     <i className="fa-solid fa-house-chimney text-xs"></i>
                     <span>Return to Main Dashboard</span>

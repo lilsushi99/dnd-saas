@@ -104,7 +104,7 @@ export const AIAssistantCard: React.FC<AIAssistantCardProps> = ({
             <i className="fa-solid fa-compass"></i>
           </div>
           <div>
-            <h3 className="font-heading text-sm font-bold text-gray-900 leading-none">
+            <h3 className="text-sm font-semibold text-gray-900 leading-none">
               Enterprise Assistant
             </h3>
             <span className="text-[11px] font-medium text-emerald-600 flex items-center gap-1 mt-1">

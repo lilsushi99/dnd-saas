@@ -45,7 +45,7 @@ export const ToastContainer: React.FC = () => {
         >
           <div className="shrink-0 mt-0.5">{getToastIcon(toast.type)}</div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-xs font-bold text-gray-900 font-heading leading-tight">
+            <h4 className="text-xs font-semibold text-gray-900 leading-tight">
               {toast.title}
             </h4>
             {toast.message && (

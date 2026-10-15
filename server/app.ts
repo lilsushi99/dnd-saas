@@ -7,7 +7,7 @@ import expenseRouter from './routes/expenseRoutes';
 import financeRouter from './routes/financeRoutes';
 import adminRouter from './routes/adminRoutes';
 import aiRouter from './routes/aiRoutes';
-import { checkDbConnection, schemaStatus } from './database/db';
+import { checkDbConnection, schemaStatus, isUsingMemoryFallback } from './database/db';
 import { sanitizeServerErrors } from './middleware/auth';
 
 /** Builds the Express app with all API routes (no Vite, no listen) so it can be started by server.ts and by tests. */
@@ -30,8 +30,8 @@ export function createApiApp() {
     const dbConnected = await checkDbConnection();
     // Public endpoint: report state only, never connection details.
     res.status(dbConnected ? 200 : 503).json({
-      status: dbConnected && schemaStatus.ok !== false ? 'ok' : 'degraded',
-      database: dbConnected ? 'connected' : 'disconnected',
+      status: dbConnected && schemaStatus.ok !== false && !isUsingMemoryFallback() ? 'ok' : 'degraded',
+      database: isUsingMemoryFallback() ? 'in-memory-fallback (NOT PERSISTENT, development only)' : dbConnected ? 'connected' : 'disconnected',
       schema: schemaStatus.ok === null ? 'unchecked' : schemaStatus.ok ? 'ok' : 'failed',
       timestamp: new Date().toISOString(),
     });

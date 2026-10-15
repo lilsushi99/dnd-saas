@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOperations } from '../../hooks/useOperations';
 import { FacilityAnalyticsTable } from './FacilityAnalyticsTable';
 import { Branch } from '../../types';
 import { AdminApiService } from '../../services/adminService';
+import { CustomDatePicker } from '../common/CustomDatePicker';
 
 interface FacilityRecordsProps {
   branchFilter?: string;
@@ -24,8 +25,13 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
     exportData,
   } = useOperations(branchFilter);
 
-  const [compareBranches, setCompareBranches] = useState(false);
   const [dbBranches, setDbBranches] = useState<Branch[]>([]);
+
+  // Custom Dropdown toggle states
+  const [showBranchMenu, setShowBranchMenu] = useState(false);
+  const [showDateMenu, setShowDateMenu] = useState(false);
+  const branchRef = useRef<HTMLDivElement>(null);
+  const dateRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     AdminApiService.fetchBranches()
@@ -33,121 +39,169 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
       .catch((err) => console.error('Error loading branches in FacilityRecords:', err));
   }, []);
 
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
+        setShowBranchMenu(false);
+      }
+      if (dateRef.current && !dateRef.current.contains(e.target as Node)) {
+        setShowDateMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const branches = [
-    { id: 'all', label: 'All Branches (Global)' },
+    { id: 'all', label: 'All Branches' },
     ...dbBranches.map((b) => ({ id: b.name, label: b.name })),
   ];
+
+  const dateOptions = [
+    { id: 'this_month', label: 'This Month' },
+    { id: 'last_7_days', label: 'Last 7 Days' },
+    { id: 'last_30_days', label: 'Last 30 Days' },
+    { id: 'all', label: 'All Time' },
+    { id: 'custom', label: 'Custom Range' },
+  ];
+
+  const currentBranchLabel =
+    branches.find((b) => b.id === branchSelect)?.label || 'All Branches';
+
+  const currentDateLabel =
+    dateOptions.find((d) => d.id === dateFilter)?.label || 'This Month';
 
   return (
     <div className="space-y-6 font-sans">
       {/* Top Banner & Title */}
-      <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-heading text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-            Facility Records & Yield Sheets
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
+            Facility Records
           </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Auto-generated from Daily Logger check-ins. No manual entry required.
-          </p>
-        </div>
-
-        {/* Informational Pill */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600 self-start md:self-auto">
-          <i className="fa-solid fa-sync text-emerald-600 text-xs animate-spin"></i>
-          <span>Synced with Database</span>
         </div>
       </div>
 
-      {/* Unified Filters Bar */}
-      <div className="bg-white border border-gray-200/80 rounded-2xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-4">
+      {/* Filters Bar */}
+      <div className="bg-white rounded-xl p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
         {/* Left Filter Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-wider pr-2 border-r border-gray-200">
-            <i className="fa-solid fa-filter text-blue-600 text-xs"></i>
-            <span>Sheet Filters</span>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Branch Filter Custom Dropdown */}
+          <div className="relative" ref={branchRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowBranchMenu(!showBranchMenu);
+                setShowDateMenu(false);
+              }}
+              className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-medium text-gray-700 flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <i className="fa-solid fa-building-user text-gray-400 text-xs"></i>
+              <span>{currentBranchLabel}</span>
+              <i
+                className={`fa-solid fa-chevron-down text-[10px] text-gray-400 ml-1 transition-transform ${
+                  showBranchMenu ? 'rotate-180' : ''
+                }`}
+              ></i>
+            </button>
+
+            {showBranchMenu && (
+              <div className="absolute left-0 mt-2 w-56 bg-white rounded-xl shadow-xl z-30 p-1.5 border border-gray-100 animate-in fade-in zoom-in-95 duration-100 text-xs font-normal">
+                {branches.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => {
+                      setBranchSelect(b.id);
+                      setShowBranchMenu(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                      branchSelect === b.id
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    <span>{b.label}</span>
+                    {branchSelect === b.id && (
+                      <i className="fa-solid fa-check text-[10px] text-blue-600"></i>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Branch Filter */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-              <i className="fa-solid fa-building-user text-xs"></i>
-            </div>
-            <select
-              value={branchSelect}
-              onChange={(e) => setBranchSelect(e.target.value)}
-              className="pl-8 pr-8 py-2 bg-gray-50 hover:bg-gray-100/80 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all cursor-pointer appearance-none"
+          {/* Date Filter Custom Dropdown */}
+          <div className="relative" ref={dateRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowDateMenu(!showDateMenu);
+                setShowBranchMenu(false);
+              }}
+              className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-medium text-gray-700 flex items-center gap-2 transition-colors cursor-pointer"
             >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.label}
-                </option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-400">
-              <i className="fa-solid fa-chevron-down text-[10px]"></i>
-            </div>
-          </div>
+              <i className="fa-regular fa-calendar-days text-gray-400 text-xs"></i>
+              <span>{currentDateLabel}</span>
+              <i
+                className={`fa-solid fa-chevron-down text-[10px] text-gray-400 ml-1 transition-transform ${
+                  showDateMenu ? 'rotate-180' : ''
+                }`}
+              ></i>
+            </button>
 
-          {/* Date Filter */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-              <i className="fa-regular fa-calendar-days text-xs"></i>
-            </div>
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="pl-8 pr-8 py-2 bg-gray-50 hover:bg-gray-100/80 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all cursor-pointer appearance-none"
-            >
-              <option value="last_7_days">Last 7 Days</option>
-              <option value="last_30_days">Last 30 Days</option>
-              <option value="this_month">This Month</option>
-              <option value="custom">Custom Range</option>
-              <option value="all">All Time</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-gray-400">
-              <i className="fa-solid fa-chevron-down text-[10px]"></i>
-            </div>
+            {showDateMenu && (
+              <div className="absolute left-0 mt-2 w-56 bg-white rounded-xl shadow-xl z-30 p-1.5 border border-gray-100 animate-in fade-in zoom-in-95 duration-100 text-xs font-normal">
+                {dateOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setDateFilter(opt.id);
+                      setShowDateMenu(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                      dateFilter === opt.id
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {dateFilter === opt.id && (
+                      <i className="fa-solid fa-check text-[10px] text-blue-600"></i>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Custom Date Inputs when Custom Range is selected */}
           {dateFilter === 'custom' && (
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1">
-              <input
-                type="date"
+            <div className="flex items-center gap-2">
+              <CustomDatePicker
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent text-xs font-medium text-gray-700 focus:outline-none"
+                onChange={(val) => setStartDate(val)}
+                placeholder="Start Date"
+                className="w-36"
               />
-              <span className="text-xs text-gray-400">to</span>
-              <input
-                type="date"
+              <span className="text-xs text-gray-400 font-medium">to</span>
+              <CustomDatePicker
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent text-xs font-medium text-gray-700 focus:outline-none"
+                onChange={(val) => setEndDate(val)}
+                placeholder="End Date"
+                className="w-36"
               />
             </div>
           )}
-
-          {/* Compare Branches Toggle */}
-          <button
-            onClick={() => setCompareBranches(!compareBranches)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer ${
-              compareBranches
-                ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-2xs'
-                : 'bg-gray-50 hover:bg-gray-100/80 border-gray-200 text-gray-700'
-            }`}
-          >
-            <i className="fa-solid fa-code-compare text-xs"></i>
-            <span>Compare Branches</span>
-            {compareBranches && <span className="w-2 h-2 rounded-full bg-blue-600"></span>}
-          </button>
         </div>
 
         {/* Right Export Actions */}
         <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={() => exportData('excel', 'facilities')}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-medium flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
           >
             <i className="fa-solid fa-file-excel text-sm"></i>
             <span>Export Facility Sheet</span>

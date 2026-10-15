@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { useBranches } from '../../hooks/useAdmin';
 import { Branch } from '../../types';
 import { BranchModal } from './BranchModal';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
+
+const statusOptions: SelectOption[] = [
+  { id: 'all', label: 'All Status' },
+  { id: 'Active', label: 'Active' },
+  { id: 'Inactive', label: 'Inactive' },
+];
 
 export const BranchesPage: React.FC = () => {
   const { branches, loading, error, createBranch, updateBranch, toggleBranchStatus } = useBranches();
@@ -46,8 +53,8 @@ export const BranchesPage: React.FC = () => {
       {/* Top Header & Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 border border-gray-200/80 rounded-2xl shadow-2xs">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 font-heading flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
               <i className="fa-solid fa-code-branch text-sm"></i>
             </span>
             Branches Management
@@ -58,7 +65,7 @@ export const BranchesPage: React.FC = () => {
         </div>
         <button
           onClick={handleOpenCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
         >
           <i className="fa-solid fa-plus text-xs"></i>
           Create Branch
@@ -70,7 +77,7 @@ export const BranchesPage: React.FC = () => {
         <div className="bg-white p-5 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500">Total Branches</p>
-            <p className="text-2xl font-bold text-gray-900 font-heading mt-1">{branches.length}</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{branches.length}</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center">
             <i className="fa-solid fa-building text-sm"></i>
@@ -80,9 +87,9 @@ export const BranchesPage: React.FC = () => {
         <div className="bg-white p-5 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500">Active Branches</p>
-            <p className="text-2xl font-bold text-emerald-600 font-heading mt-1">{activeCount}</p>
+            <p className="text-2xl font-semibold text-emerald-600 mt-1">{activeCount}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <i className="fa-solid fa-circle-check text-sm"></i>
           </div>
         </div>
@@ -90,9 +97,9 @@ export const BranchesPage: React.FC = () => {
         <div className="bg-white p-5 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500">Inactive Branches</p>
-            <p className="text-2xl font-bold text-gray-500 font-heading mt-1">{inactiveCount}</p>
+            <p className="text-2xl font-semibold text-gray-500 mt-1">{inactiveCount}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 border border-gray-200 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center">
             <i className="fa-solid fa-ban text-sm"></i>
           </div>
         </div>
@@ -111,17 +118,13 @@ export const BranchesPage: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <span className="text-xs font-medium text-gray-500">Filter Status:</span>
-          <select
+        <div className="w-full sm:w-44 shrink-0">
+          <CustomSelect
+            options={statusOptions}
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:bg-white focus:border-blue-500 transition-all cursor-pointer"
-          >
-            <option value="all">All Statuses</option>
-            <option value="Active">Active Only</option>
-            <option value="Inactive">Inactive Only</option>
-          </select>
+            onChange={(val) => setStatusFilter(val as any)}
+            icon="fa-solid fa-filter"
+          />
         </div>
       </div>
 
@@ -157,7 +160,7 @@ export const BranchesPage: React.FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {filteredBranches.map((branch) => (
                   <tr key={branch.id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-gray-900 font-heading">
+                    <td className="px-6 py-4 font-medium text-gray-900">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 text-xs">
                           <i className="fa-solid fa-building"></i>
@@ -177,13 +180,11 @@ export const BranchesPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       {branch.status === 'Active' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700">
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600">
                           Inactive
                         </span>
                       )}

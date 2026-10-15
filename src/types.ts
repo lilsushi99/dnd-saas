@@ -252,6 +252,7 @@ export interface FinanceReportFilters {
   period?: 'today' | 'last_7_days' | 'this_month' | 'custom' | 'full_year';
   startDate?: string;
   endDate?: string;
+  customDates?: string[];
   branch?: string;
 }
 

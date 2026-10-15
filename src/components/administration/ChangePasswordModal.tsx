@@ -50,10 +50,10 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       <div className="relative w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-2xl z-10 overflow-hidden font-sans animate-in zoom-in-95 duration-150">
         <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center text-sm">
+            <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm">
               <i className="fa-solid fa-key"></i>
             </span>
-            <h3 className="font-heading font-bold text-sm text-gray-900">Change Account Password</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Change Account Password</h3>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xs">
             <i className="fa-solid fa-xmark text-sm"></i>
@@ -62,7 +62,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Current Password</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Current Password</label>
             <input
               type="password"
               value={currentPassword}
@@ -73,7 +73,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">New Password</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">New Password</label>
             <input
               type="password"
               value={newPassword}
@@ -84,7 +84,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Confirm New Password</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Confirm New Password</label>
             <input
               type="password"
               value={confirmPassword}
@@ -98,14 +98,14 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+              className="px-4 py-2 border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-medium rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-xl transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
             >
               {isSubmitting && <i className="fa-solid fa-circle-notch fa-spin text-xs"></i>}
               Update Password

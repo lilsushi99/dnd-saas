@@ -20,18 +20,19 @@ interface RevenueTrendChartProps {
 export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilter, filters }) => {
   const [timeframe, setTimeframe] = useState<'7D' | '30D' | '12M'>('30D');
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedBranchTab, setSelectedBranchTab] = useState<string>('compare'); // 'compare' or branch.name / branch.id
-  const [chartData, setChartData] = useState<Array<{
-    date: string;
-    revenue: number;
-    expenses: number;
-    profit: number;
-    branchRevenues?: Record<string, number>;
-  }>>([]);
+  const [selectedBranchTab, setSelectedBranchTab] = useState<string>('compare');
+  const [chartData, setChartData] = useState<
+    Array<{
+      date: string;
+      revenue: number;
+      expenses: number;
+      profit: number;
+      branchRevenues?: Record<string, number>;
+    }>
+  >([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
 
-  // Load branches dynamically from the database
   useEffect(() => {
     AdminApiService.fetchBranches()
       .then((bList) => {
@@ -68,7 +69,10 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
     else if (filters?.dateRange === 'this_month') period = 'this_month';
     else if (filters?.dateRange === 'custom') period = 'custom';
 
-    const branch = selectedBranchTab !== 'compare' && selectedBranchTab !== 'all' ? selectedBranchTab : undefined;
+    const branch =
+      selectedBranchTab !== 'compare' && selectedBranchTab !== 'all'
+        ? selectedBranchTab
+        : undefined;
 
     FinanceApiService.fetchAnalytics({
       period: period as any,
@@ -109,7 +113,6 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
   ];
 
   const isCompare = selectedBranchTab === 'compare';
-
   const totalRevSum = totalRevenue;
   const totalExpSum = totalExpenses;
   const netProfit = totalRevSum - totalExpSum;
@@ -121,8 +124,8 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
 
       if (isCompare && branches.length > 0) {
         return (
-          <div className="bg-white border border-gray-200 p-3.5 rounded-xl shadow-xl text-xs font-sans min-w-[190px]">
-            <p className="font-bold text-gray-900 pb-2 mb-2 border-b border-gray-100 flex items-center justify-between">
+          <div className="bg-white p-3 rounded-xl shadow-lg text-xs font-sans min-w-[190px]">
+            <p className="font-semibold text-gray-900 pb-2 mb-2 border-b border-gray-100 flex items-center justify-between">
               <span>{label}</span>
               <span className="text-[10px] text-gray-400 font-normal">Branch Revenue</span>
             </p>
@@ -132,16 +135,19 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
                 const rev = (dataPoint?.branchRevenues && dataPoint.branchRevenues[b.name]) || 0;
                 return (
                   <div key={b.id} className="flex items-center justify-between gap-4">
-                    <span className="flex items-center gap-1.5 font-semibold text-gray-700">
-                      <span className="w-2.5 h-2.5 rounded-full shadow-2xs" style={{ backgroundColor: color }}></span>
+                    <span className="flex items-center gap-1.5 font-normal text-gray-700">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: color }}
+                      ></span>
                       {b.name}:
                     </span>
-                    <span className="font-bold text-gray-900">₦{rev.toLocaleString()}</span>
+                    <span className="font-medium text-gray-900">₦{rev.toLocaleString()}</span>
                   </div>
                 );
               })}
-              <div className="border-t border-gray-100 pt-1.5 flex items-center justify-between gap-4 font-bold text-gray-900">
-                <span>Total Revenue:</span>
+              <div className="border-t border-gray-100 pt-1.5 flex items-center justify-between gap-4 font-semibold text-gray-900">
+                <span>Total:</span>
                 <span>₦{(dataPoint?.revenue || 0).toLocaleString()}</span>
               </div>
             </div>
@@ -153,8 +159,8 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
       const exp = dataPoint?.expenses || 0;
 
       return (
-        <div className="bg-white border border-gray-200 p-3.5 rounded-xl shadow-xl text-xs font-sans min-w-[180px]">
-          <p className="font-bold text-gray-900 pb-2 mb-2 border-b border-gray-100 flex items-center justify-between">
+        <div className="bg-white p-3 rounded-xl shadow-lg text-xs font-sans min-w-[180px]">
+          <p className="font-semibold text-gray-900 pb-2 mb-2 border-b border-gray-100 flex items-center justify-between">
             <span>{label}</span>
             <span className="text-[10px] text-gray-400 font-normal">
               {selectedBranchTab === 'compare' ? 'All Branches' : selectedBranchTab}
@@ -162,18 +168,18 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
           </p>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-4">
-              <span className="flex items-center gap-1.5 text-blue-600 font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-2xs"></span>
+              <span className="flex items-center gap-1.5 text-blue-600 font-normal">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Revenue:
               </span>
-              <span className="font-bold text-gray-900">₦{rev.toLocaleString()}</span>
+              <span className="font-medium text-gray-900">₦{rev.toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span className="flex items-center gap-1.5 text-red-600 font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-2xs"></span>
+              <span className="flex items-center gap-1.5 text-rose-600 font-normal">
+                <span className="w-2 h-2 rounded-full bg-rose-500"></span>
                 Expenses:
               </span>
-              <span className="font-bold text-gray-900">₦{exp.toLocaleString()}</span>
+              <span className="font-medium text-gray-900">₦{exp.toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -183,26 +189,25 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
   };
 
   return (
-    <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-2xs font-sans flex flex-col justify-between h-full">
+    <div className="bg-white rounded-xl p-6 shadow-xs font-sans flex flex-col justify-between h-full">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h3 className="font-heading text-lg font-bold text-gray-900 tracking-tight">
-            Revenue & Operational Trend
+          <h3 className="font-heading text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
+            Revenue
           </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Gross revenue stream vs operational expense ledgers
-          </p>
         </div>
 
-        {/* Branch Compare Mode & Timeframe Selector */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 min-w-0 max-w-full">
-          <div className="max-w-full sm:max-w-md lg:max-w-lg overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-gray-300 p-1 bg-gray-100 rounded-xl text-xs font-semibold flex items-center gap-1 shrink min-w-0">
+        {/* Hub Selector and Time Selector (Identical horizontal alignment & visual control group) */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Hub Selector */}
+          <div className="inline-flex items-center p-1 bg-gray-100 rounded-xl text-xs font-normal">
             <button
+              type="button"
               onClick={() => setSelectedBranchTab('all')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                 selectedBranchTab === 'all'
-                  ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                  ? 'bg-white text-gray-900 font-medium shadow-2xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
@@ -211,10 +216,11 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
             {branches.map((b) => (
               <button
                 key={b.id}
+                type="button"
                 onClick={() => setSelectedBranchTab(b.name)}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                   selectedBranchTab === b.name
-                    ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                    ? 'bg-white text-gray-900 font-medium shadow-2xs'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -222,26 +228,28 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
               </button>
             ))}
             <button
+              type="button"
               onClick={() => setSelectedBranchTab('compare')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0 ${
+              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap ${
                 selectedBranchTab === 'compare'
-                  ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                  ? 'bg-white text-gray-900 font-medium shadow-2xs'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <i className="fa-solid fa-code-compare text-[10px]"></i>
-              <span>Compare Branches</span>
+              <span>Compare</span>
             </button>
           </div>
 
-          <div className="flex bg-gray-100 p-1 rounded-xl text-xs font-semibold">
+          {/* Time Selector */}
+          <div className="inline-flex items-center p-1 bg-gray-100 rounded-xl text-xs font-normal">
             {(['7D', '30D', '12M'] as const).map((tf) => (
               <button
                 key={tf}
+                type="button"
                 onClick={() => setTimeframe(tf)}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                   timeframe === tf
-                    ? 'bg-white text-gray-900 shadow-2xs font-bold'
+                    ? 'bg-white text-gray-900 font-medium shadow-2xs'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -253,108 +261,93 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
       </div>
 
       {/* Legend Row */}
-      <div className="flex flex-wrap items-center gap-5 mb-3 text-xs font-medium">
+      <div className="flex flex-wrap items-center gap-5 mb-3 text-xs font-normal text-gray-500">
         {isCompare ? (
           <>
             {branches.map((b, idx) => {
               const c = branchColors[idx % branchColors.length].stroke;
               return (
-                <span key={b.id} className="flex items-center gap-1.5 text-gray-800 font-semibold">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }}></span>
-                  {b.name}
-                </span>
+                <div key={b.id} className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c }}></span>
+                  <span className="text-gray-700">{b.name}</span>
+                </div>
               );
             })}
           </>
         ) : (
           <>
-            <span className="flex items-center gap-1.5 text-gray-800 font-semibold">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-              Revenue (Blue)
-            </span>
-            <span className="flex items-center gap-1.5 text-gray-800 font-semibold">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-              Expenses (Red)
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+              <span className="text-gray-700">Gross Revenue</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+              <span className="text-gray-700">Operating Expenses</span>
+            </div>
           </>
         )}
       </div>
 
       {/* Chart Canvas */}
-      <div className="w-full h-64 sm:h-72">
+      <div className="h-[250px] w-full min-h-[220px]">
         {chartData.length === 0 ? (
-          <div className="w-full h-full flex flex-col items-center justify-center border border-dashed border-gray-200 rounded-xl">
-            <p className="text-xs font-semibold text-gray-500">No Revenue Data Recorded</p>
-            <p className="text-[11px] text-gray-400 mt-1">Bookings and revenue transactions will populate this timeline.</p>
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-gray-50 rounded-xl">
+            <p className="text-xs font-normal text-gray-500">No Revenue Data in Timeframe</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={chartData}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.01} />
+                  <stop offset="5%" stopColor="#2563EB" stopOpacity={0.12} />
+                  <stop offset="95%" stopColor="#2563EB" stopOpacity={0.0} />
                 </linearGradient>
                 <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#EF4444" stopOpacity={0.22} />
-                  <stop offset="95%" stopColor="#EF4444" stopOpacity={0.01} />
+                  <stop offset="5%" stopColor="#DC2626" stopOpacity={0.1} />
+                  <stop offset="95%" stopColor="#DC2626" stopOpacity={0.0} />
                 </linearGradient>
                 {branches.map((b, idx) => {
-                  const c = branchColors[idx % branchColors.length].stroke;
+                  const color = branchColors[idx % branchColors.length].stroke;
                   return (
                     <linearGradient key={b.id} id={`colorBranch_${idx}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={c} stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={c} stopOpacity={0.01} />
+                      <stop offset="5%" stopColor={color} stopOpacity={0.12} />
+                      <stop offset="95%" stopColor={color} stopOpacity={0.0} />
                     </linearGradient>
                   );
                 })}
               </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="#F1F5F9"
-              />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
               <XAxis
                 dataKey="date"
-                axisLine={false}
+                stroke="#94A3B8"
+                fontSize={11}
                 tickLine={false}
-                tick={{ fill: '#64748B', fontSize: 11 }}
-                dy={5}
+                axisLine={false}
               />
               <YAxis
-                axisLine={false}
+                stroke="#94A3B8"
+                fontSize={11}
                 tickLine={false}
-                tick={{ fill: '#64748B', fontSize: 11 }}
-                tickFormatter={(val) =>
-                  val >= 1000000
-                    ? `₦${(val / 1000000).toFixed(1)}M`
-                    : val >= 1000
-                    ? `₦${(val / 1000).toFixed(0)}k`
-                    : `₦${val}`
-                }
+                axisLine={false}
+                tickFormatter={(v) => `₦${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`}
               />
               <Tooltip content={<CustomTooltip />} />
               {isCompare ? (
-                <>
-                  {branches.map((b, idx) => {
-                    const c = branchColors[idx % branchColors.length].stroke;
-                    return (
-                      <Area
-                        key={b.id}
-                        type="monotone"
-                        dataKey={(item) => (item.branchRevenues && item.branchRevenues[b.name]) || 0}
-                        name={b.name}
-                        stroke={c}
-                        strokeWidth={2.5}
-                        fillOpacity={1}
-                        fill={`url(#colorBranch_${idx})`}
-                      />
-                    );
-                  })}
-                </>
+                branches.map((b, idx) => {
+                  const color = branchColors[idx % branchColors.length].stroke;
+                  return (
+                    <Area
+                      key={b.id}
+                      type="monotone"
+                      dataKey={(item) => (item.branchRevenues ? item.branchRevenues[b.name] || 0 : 0)}
+                      name={b.name}
+                      stroke={color}
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill={`url(#colorBranch_${idx})`}
+                    />
+                  );
+                })
               ) : (
                 <>
                   <Area
@@ -362,7 +355,7 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
                     dataKey="revenue"
                     name="Revenue"
                     stroke="#2563EB"
-                    strokeWidth={2.5}
+                    strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorRevenue)"
                   />
@@ -382,37 +375,29 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
         )}
       </div>
 
-      {/* Footer Business Summaries */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-gray-100 pt-4 mt-4 text-left">
+      {/* Footer Metrics (Total Revenue, Total Expense, Net Profit, Profit Margin) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-gray-100 pt-4 mt-4 text-left">
         <div>
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-            Total Revenue
-          </span>
-          <span className="text-sm font-extrabold text-blue-600 mt-0.5 block font-heading">
+          <span className="text-xs font-normal text-gray-500 block">Total Revenue</span>
+          <span className="text-base sm:text-lg font-medium text-gray-900 mt-1 block font-heading">
             ₦{totalRevSum.toLocaleString()}
           </span>
         </div>
         <div>
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-            Total Expenses
-          </span>
-          <span className="text-sm font-extrabold text-rose-600 mt-0.5 block font-heading">
+          <span className="text-xs font-normal text-gray-500 block">Total Expense</span>
+          <span className="text-base sm:text-lg font-medium text-gray-900 mt-1 block font-heading">
             ₦{totalExpSum.toLocaleString()}
           </span>
         </div>
         <div>
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-            Net Profit
-          </span>
-          <span className="text-sm font-extrabold text-emerald-600 mt-0.5 block font-heading">
+          <span className="text-xs font-normal text-gray-500 block">Net Profit</span>
+          <span className="text-base sm:text-lg font-medium text-gray-900 mt-1 block font-heading">
             ₦{netProfit.toLocaleString()}
           </span>
         </div>
         <div>
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
-            Profit Margin
-          </span>
-          <span className="text-sm font-extrabold text-purple-600 mt-0.5 block font-heading">
+          <span className="text-xs font-normal text-gray-500 block">Profit Margin</span>
+          <span className="text-base sm:text-lg font-medium text-gray-900 mt-1 block font-heading">
             {profitMargin.toFixed(1)}%
           </span>
         </div>

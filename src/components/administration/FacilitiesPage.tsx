@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { useFacilities, useBranches } from '../../hooks/useAdmin';
 import { Facility } from '../../types';
 import { FacilityModal } from './FacilityModal';
+import { CustomSelect, SelectOption } from '../common/CustomSelect';
+
+const statusOptions: SelectOption[] = [
+  { id: 'all', label: 'All Status' },
+  { id: 'Active', label: 'Active' },
+  { id: 'Inactive', label: 'Inactive' },
+];
 
 export const FacilitiesPage: React.FC = () => {
   const { facilities, loading, error, createFacility, updateFacility, deleteFacility } = useFacilities();
@@ -26,6 +33,11 @@ export const FacilitiesPage: React.FC = () => {
     const matchesStatus = statusFilter === 'all' || f.status === statusFilter;
     return matchesSearch && matchesBranch && matchesStatus;
   });
+
+  const branchOptions: SelectOption[] = [
+    { id: 'all', label: 'All Branches' },
+    ...branches.map((b) => ({ id: b.id, label: b.name })),
+  ];
 
   const handleOpenCreate = () => {
     setEditingFacility(null);
@@ -56,19 +68,19 @@ export const FacilitiesPage: React.FC = () => {
       {/* Top Header & Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 border border-gray-200/80 rounded-2xl shadow-2xs">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 font-heading flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
               <i className="fa-solid fa-house-signal text-sm"></i>
             </span>
             Facilities & Spaces
           </h1>
-          <p className="text-xs text-gray-500 font-sans mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Manage bookable space units, default standard pricing, and branch assignments
           </p>
         </div>
         <button
           onClick={handleOpenCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
         >
           <i className="fa-solid fa-plus text-xs"></i>
           Create Facility
@@ -80,9 +92,9 @@ export const FacilitiesPage: React.FC = () => {
         <div className="bg-white p-5 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500">Total Facilities</p>
-            <p className="text-2xl font-bold text-gray-900 font-heading mt-1">{facilities.length}</p>
+            <p className="text-2xl font-semibold text-gray-900 mt-1">{facilities.length}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
             <i className="fa-solid fa-door-open text-sm"></i>
           </div>
         </div>
@@ -90,11 +102,11 @@ export const FacilitiesPage: React.FC = () => {
         <div className="bg-white p-5 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500">Active Facilities</p>
-            <p className="text-2xl font-bold text-emerald-600 font-heading mt-1">
+            <p className="text-2xl font-semibold text-emerald-600 mt-1">
               {facilities.filter((f) => f.status === 'Active').length}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <i className="fa-solid fa-circle-check text-sm"></i>
           </div>
         </div>
@@ -102,9 +114,9 @@ export const FacilitiesPage: React.FC = () => {
         <div className="bg-white p-5 border border-gray-200/80 rounded-2xl shadow-2xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500">Configured Branches</p>
-            <p className="text-2xl font-bold text-blue-600 font-heading mt-1">{branches.length}</p>
+            <p className="text-2xl font-semibold text-blue-600 mt-1">{branches.length}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <i className="fa-solid fa-code-branch text-sm"></i>
           </div>
         </div>
@@ -123,34 +135,23 @@ export const FacilitiesPage: React.FC = () => {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-gray-500">Branch:</span>
-            <select
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="w-full sm:w-44">
+            <CustomSelect
+              options={branchOptions}
               value={branchFilter}
-              onChange={(e) => setBranchFilter(e.target.value)}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:bg-white focus:border-purple-500 transition-all cursor-pointer"
-            >
-              <option value="all">All Branches</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setBranchFilter(String(val))}
+              icon="fa-solid fa-code-branch"
+            />
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-gray-500">Status:</span>
-            <select
+          <div className="w-full sm:w-36">
+            <CustomSelect
+              options={statusOptions}
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none focus:bg-white focus:border-purple-500 transition-all cursor-pointer"
-            >
-              <option value="all">All Statuses</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+              onChange={(val) => setStatusFilter(val as any)}
+              icon="fa-solid fa-filter"
+            />
           </div>
         </div>
       </div>
@@ -188,45 +189,43 @@ export const FacilitiesPage: React.FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {filteredFacilities.map((facility) => (
                   <tr key={facility.id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-gray-900 font-heading">
+                    <td className="px-6 py-4 font-medium text-gray-900">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center text-xs">
+                        <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-xs">
                           <i className="fa-solid fa-border-all"></i>
                         </div>
                         <div>
                           <div>{facility.name}</div>
-                          <div className="text-[10px] text-gray-400 font-normal font-sans">{facility.id}</div>
+                          <div className="text-[10px] text-gray-400 font-normal">{facility.id}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-gray-700">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-lg text-xs font-medium text-gray-700">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-lg text-xs font-normal text-gray-700">
                         <i className="fa-solid fa-building text-gray-400 text-[10px]"></i>
                         {facility.branchName}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-semibold border border-purple-100 font-mono">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium font-mono">
                         <i className="fa-solid fa-users text-purple-500 text-[10px]"></i>
                         {facility.capacity || 5} Max
                       </span>
                     </td>
                     <td className="px-6 py-4 font-mono">
                       {facility.defaultPrice !== undefined && facility.defaultPrice !== null ? (
-                        <span className="font-semibold text-gray-900">${facility.defaultPrice.toLocaleString()}</span>
+                        <span className="font-normal text-gray-900">${facility.defaultPrice.toLocaleString()}</span>
                       ) : (
-                        <span className="text-gray-400 italic font-sans text-[11px]">Negotiable / Custom</span>
+                        <span className="text-gray-400 italic text-[11px]">Negotiable / Custom</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
                       {facility.status === 'Active' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700">
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600">
                           Inactive
                         </span>
                       )}

@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", sans-serif;
-  --font-heading: "Outfit", sans-serif;
+  --font-sans: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --color-brand-50: #EFF6FF;
   --color-brand-100: #DBEAFE;
   --color-brand-500: #3B82F6;
@@ -12,14 +12,159 @@
   --color-border-subtle: #EAECF0;
 }
 
-body {
-  font-family: var(--font-sans);
+/* ==========================================================================
+   GLOBAL FONT DEFINITION — OUTFIT EVERYWHERE
+   ========================================================================== */
+:root {
+  font-family: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-base: "Outfit", sans-serif;
+}
+
+html, body, #root {
+  font-family: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: #F8F9FB;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Inherit Outfit font family across all elements, inputs, buttons, and tables */
+*, button, input, select, textarea, optgroup, table, th, td {
+  font-family: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Ensure Font Awesome and icon elements preserve icon glyph font */
+.fa, .fas, .far, .fal, .fad, .fab, [class^="fa-"], [class*=" fa-"], svg {
+  font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands", fontawesome !important;
+}
+
+/* ==========================================================================
+   GLOBAL TYPOGRAPHY HIERARCHY — CALM, DELIBERATE WEIGHTS
+   ========================================================================== */
+/* Main page titles */
+h1 {
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Section headings */
+h2 {
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* Card titles, subheadings */
+h3, h4, h5, h6 {
+  font-family: "Outfit", sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Table headers: medium/semibold, never heavy bold */
+table th, thead th {
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+
+/* Table body rows: calm regular or medium */
+table td, tbody td {
+  font-weight: 400;
+}
+
+/* Form labels and field labels: medium */
+label {
+  font-weight: 500;
+}
+
+/* Buttons and nav elements: medium */
+button, nav a, nav button, [role="button"] {
+  font-weight: 500;
+}
+
+/* Normalize font-bold to semibold across metric cards and headers */
+.kpi-value, .metric-value {
+  font-weight: 600;
+}
+
+.kpi-title, .metric-title {
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+/* ==========================================================================
+   SOFT-COLOR FILLED CONTAINERS — REMOVE UNNECESSARY BORDERS
+   ========================================================================== */
+/* Remove decorative borders from soft-tint filled badges, chips, pills, and icon boxes */
+span[class*="bg-blue-50"],
+span[class*="bg-emerald-50"],
+span[class*="bg-green-50"],
+span[class*="bg-teal-50"],
+span[class*="bg-amber-50"],
+span[class*="bg-yellow-50"],
+span[class*="bg-rose-50"],
+span[class*="bg-red-50"],
+span[class*="bg-purple-50"],
+span[class*="bg-violet-50"],
+span[class*="bg-indigo-50"],
+div[class*="bg-blue-50"][class*="rounded"],
+div[class*="bg-emerald-50"][class*="rounded"],
+div[class*="bg-green-50"][class*="rounded"],
+div[class*="bg-teal-50"][class*="rounded"],
+div[class*="bg-amber-50"][class*="rounded"],
+div[class*="bg-yellow-50"][class*="rounded"],
+div[class*="bg-rose-50"][class*="rounded"],
+div[class*="bg-red-50"][class*="rounded"],
+div[class*="bg-purple-50"][class*="rounded"],
+div[class*="bg-violet-50"][class*="rounded"],
+div[class*="bg-indigo-50"][class*="rounded"],
+.badge-soft,
+.pill-soft,
+.icon-box-soft {
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  outline: none !important;
+}
+
+/* Keep borders on white or transparent components, forms, controls, and focus states */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea,
+button.border,
+.bg-white.border,
+.card-bordered {
+  border-color: #E5E7EB;
+}
+
+/* ==========================================================================
+   GLOBAL DROPDOWN & SELECT STYLING — ROUNDED, OUTFIT, SOFT-BLUE HOVER/SELECTED
+   ========================================================================== */
+select {
+  font-family: "Outfit", sans-serif;
+  border-radius: 0.75rem; /* rounded-xl */
+  outline: none;
+  transition: all 0.15s ease-in-out;
+}
+
+select:focus {
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+select option {
+  font-family: "Outfit", sans-serif;
+  padding: 8px 12px;
+  background-color: #ffffff;
   color: #111827;
 }
 
-h1, h2, h3, h4, h5, h6, .font-heading {
-  font-family: var(--font-heading);
+select option:hover,
+select option:focus,
+select option:checked {
+  background-color: #EFF6FF !important; /* bg-blue-50 */
+  color: #1D4ED8 !important; /* text-blue-700 */
 }
 
 /* Custom scrollbar styling for professional enterprise look */
