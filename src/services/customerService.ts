@@ -1,11 +1,7 @@
-import { apiRequest } from './http';
 import { Customer, ActiveSubscription, CustomerFilters, SubscriptionFilters } from '../types';
+import { ApiClient } from './apiClient';
 
 export class CustomerApiService {
-  private static async request<T>(url: string, options?: RequestInit): Promise<T> {
-    return apiRequest<T>(url, options);
-  }
-
   public static async fetchCustomers(filters?: CustomerFilters): Promise<{
     customers: Customer[];
     summary: {
@@ -13,6 +9,7 @@ export class CustomerApiService {
       totalRevenue: number;
       activeSubscriptionsCount: number;
       expiringSoonCount: number;
+      expiredSubscriptionsCount?: number;
     };
   }> {
     const query = new URLSearchParams();
@@ -22,7 +19,7 @@ export class CustomerApiService {
     if (filters?.sort) query.set('sort', filters.sort);
     if (filters?.status && filters.status !== 'all') query.set('status', filters.status);
 
-    const data = await this.request<{
+    const data = await ApiClient.request<{
       success: boolean;
       customers: Customer[];
       summary: {
@@ -30,6 +27,7 @@ export class CustomerApiService {
         totalRevenue: number;
         activeSubscriptionsCount: number;
         expiringSoonCount: number;
+        expiredSubscriptionsCount?: number;
       };
     }>(`/api/customers?${query.toString()}`);
 
@@ -37,10 +35,54 @@ export class CustomerApiService {
   }
 
   public static async fetchCustomerById(id: string): Promise<Customer> {
-    const data = await this.request<{ success: boolean; customer: Customer }>(
+    const data = await ApiClient.request<{ success: boolean; customer: Customer }>(
       `/api/customers/${encodeURIComponent(id)}`
     );
     return data.customer;
+  }
+
+  public static async createCustomer(customerData: {
+    name: string;
+    phone?: string;
+    email?: string;
+    company?: string;
+    status?: string;
+  }): Promise<Customer> {
+    const data = await ApiClient.request<{ success: boolean; customer: Customer }>('/api/customers', {
+      method: 'POST',
+      body: JSON.stringify(customerData),
+    });
+    return data.customer;
+  }
+
+  public static async updateCustomer(
+    id: string,
+    updates: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      company?: string;
+      status?: string;
+    }
+  ): Promise<Customer> {
+    const data = await ApiClient.request<{ success: boolean; customer: Customer }>(
+      `/api/customers/${encodeURIComponent(id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }
+    );
+    return data.customer;
+  }
+
+  public static async deleteCustomer(id: string): Promise<boolean> {
+    const data = await ApiClient.request<{ success: boolean }>(
+      `/api/customers/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    return data.success;
   }
 
   public static async fetchActiveSubscriptions(
@@ -53,7 +95,7 @@ export class CustomerApiService {
     if (filters?.date) query.set('date', filters.date);
     if (filters?.search) query.set('search', filters.search);
 
-    const data = await this.request<{ success: boolean; subscriptions: ActiveSubscription[] }>(
+    const data = await ApiClient.request<{ success: boolean; subscriptions: ActiveSubscription[] }>(
       `/api/customers/subscriptions/active?${query.toString()}`
     );
     return data.subscriptions;
@@ -61,17 +103,15 @@ export class CustomerApiService {
 
   // Prepared future communication API endpoints (stubs)
   public static async sendWhatsAppMessage(customerId: string, message: string) {
-    return this.request(`/api/customers/${customerId}/whatsapp`, {
+    return ApiClient.request(`/api/customers/${customerId}/whatsapp`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message }),
     });
   }
 
   public static async sendEmailCampaign(customerId: string, subject: string, body: string) {
-    return this.request(`/api/customers/${customerId}/email`, {
+    return ApiClient.request(`/api/customers/${customerId}/email`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subject, body }),
     });
   }

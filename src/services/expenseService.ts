@@ -71,6 +71,16 @@ export class ExpenseApiService {
     return data.expense;
   }
 
+  public static async deleteExpense(id: string): Promise<boolean> {
+    const data = await this.request<{
+      success: boolean;
+    }>(`/api/expenses/${id}`, {
+      method: 'DELETE',
+    });
+
+    return data.success;
+  }
+
   // --- CATEGORY API SERVICES ---
   public static async fetchCategories(): Promise<ExpenseCategory[]> {
     const data = await this.request<{

@@ -36,6 +36,36 @@ export class CustomerController {
     }
   }
 
+  public static async createCustomer(req: Request, res: Response) {
+    try {
+      const { name, phone, email, company, status } = req.body;
+      const newCustomer = await service.createCustomer({ name, phone, email, company, status });
+      return res.status(201).json({ success: true, customer: newCustomer });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+  }
+
+  public static async updateCustomer(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const updated = await service.updateCustomer(id, req.body);
+      return res.json({ success: true, customer: updated });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+  }
+
+  public static async deleteCustomer(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const success = await service.deleteCustomer(id);
+      return res.json({ success });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+  }
+
   public static async getActiveSubscriptions(req: Request, res: Response) {
     try {
       const { branch, facility, daysRemaining, date, search } = req.query;

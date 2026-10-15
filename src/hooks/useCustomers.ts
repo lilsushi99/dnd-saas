@@ -121,6 +121,45 @@ export function useCustomers(initialBranch: string = 'all') {
     setSelectedCustomer(null);
   };
 
+  const createCustomer = async (data: {
+    name: string;
+    phone?: string;
+    email?: string;
+    company?: string;
+    status?: string;
+  }) => {
+    const newCustomer = await CustomerApiService.createCustomer(data);
+    await loadCustomers();
+    return newCustomer;
+  };
+
+  const updateCustomer = async (
+    id: string,
+    updates: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      company?: string;
+      status?: string;
+    }
+  ) => {
+    const updated = await CustomerApiService.updateCustomer(id, updates);
+    if (selectedCustomer && selectedCustomer.id === id) {
+      setSelectedCustomer(updated);
+    }
+    await loadCustomers();
+    return updated;
+  };
+
+  const deleteCustomer = async (id: string) => {
+    const success = await CustomerApiService.deleteCustomer(id);
+    if (isDrawerOpen && selectedCustomer?.id === id) {
+      closeCustomerProfile();
+    }
+    await loadCustomers();
+    return success;
+  };
+
   // Export functions
   const exportCustomersData = (type: 'csv' | 'excel') => {
     const headers = [
@@ -239,6 +278,9 @@ export function useCustomers(initialBranch: string = 'all') {
     // Actions
     openCustomerProfile,
     closeCustomerProfile,
+    createCustomer,
+    updateCustomer,
+    deleteCustomer,
     exportCustomersData,
     exportSubscriptionsData,
     refetchCustomers: loadCustomers,

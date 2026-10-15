@@ -58,6 +58,16 @@ export class ExpenseController {
     }
   }
 
+  public static async deleteExpense(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const success = await service.deleteExpense(id);
+      return res.json({ success });
+    } catch (err: any) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+  }
+
   // --- CATEGORY ENDPOINTS ---
   public static async getCategories(req: Request, res: Response) {
     try {

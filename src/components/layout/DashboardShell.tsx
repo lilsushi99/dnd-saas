@@ -206,6 +206,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                 status={customerState.crmStatus}
                 onStatusChange={customerState.setCrmStatus}
                 onOpenCustomerProfile={customerState.openCustomerProfile}
+                onCreateCustomer={customerState.createCustomer}
                 onExportCSV={() => customerState.exportCustomersData('csv')}
                 onExportExcel={() => customerState.exportCustomersData('excel')}
               />
@@ -277,6 +278,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
           customer={customerState.selectedCustomer}
           isOpen={customerState.isDrawerOpen}
           onClose={customerState.closeCustomerProfile}
+          onUpdateCustomer={customerState.updateCustomer}
         />
 
         {/* Global Search Modal */}

@@ -2,11 +2,227 @@ import { Customer, ActiveSubscription, CustomerFilters, SubscriptionFilters, Boo
 import { executeQuery } from '../database/db';
 import { auditRepository } from './auditRepository';
 
+function formatDateToISO(val: any): string {
+  if (!val) return new Date().toISOString().substring(0, 10);
+  if (val instanceof Date) {
+    if (!isNaN(val.getTime())) {
+      const year = val.getFullYear();
+      const month = String(val.getMonth() + 1).padStart(2, '0');
+      const day = String(val.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  }
+  const s = String(val).trim();
+  if (s.match(/^\d{4}-\d{2}-\d{2}/)) {
+    return s.substring(0, 10);
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return s.substring(0, 10);
+}
+
 export class CustomerRepository {
+  public async getNextClientId(): Promise<string> {
+    const clients = await executeQuery<any>(`SELECT id FROM clients`);
+    let settingsPrefix = 'CL';
+    try {
+      const settings = await executeQuery<any>(`SELECT client_prefix FROM business_settings LIMIT 1`);
+      if (settings && settings[0]?.client_prefix) {
+        settingsPrefix = settings[0].client_prefix;
+      }
+    } catch (e) {}
+
+    let maxSeq = clients.length;
+    for (const c of clients) {
+      const match = String(c.id).match(/\d+$/);
+      if (match) {
+        const num = parseInt(match[0], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+    const nextSeq = maxSeq + 1;
+    return `${settingsPrefix}-${String(nextSeq).padStart(3, '0')}`;
+  }
+
+  public async createCustomer(data: {
+    name: string;
+    phone?: string;
+    email?: string;
+    company?: string;
+    status?: string;
+  }): Promise<Customer> {
+    if (!data.name || !data.name.trim()) {
+      throw new Error('Customer full name is required.');
+    }
+
+    const cleanName = data.name.trim();
+    const cleanPhone = (data.phone || '').trim();
+    const cleanEmail = (data.email || '').trim().toLowerCase();
+    const cleanCompany = (data.company || '').trim();
+
+    // Check for duplicate customer
+    if (cleanEmail) {
+      const existingByEmail = await executeQuery<any>(
+        `SELECT id, name FROM clients WHERE LOWER(email) = LOWER(?) LIMIT 1`,
+        [cleanEmail]
+      );
+      if (existingByEmail && existingByEmail.length > 0) {
+        throw new Error(`A customer with email "${cleanEmail}" already exists (${existingByEmail[0].name}).`);
+      }
+    }
+
+    if (cleanPhone) {
+      const existingByPhone = await executeQuery<any>(
+        `SELECT id, name FROM clients WHERE phone = ? LIMIT 1`,
+        [cleanPhone]
+      );
+      if (existingByPhone && existingByPhone.length > 0) {
+        throw new Error(`A customer with phone number "${cleanPhone}" already exists (${existingByPhone[0].name}).`);
+      }
+    }
+
+    const newId = await this.getNextClientId();
+    const customerStatus = data.status || 'Active';
+    const createdAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+    await executeQuery(
+      `INSERT INTO clients (id, name, phone, email, company, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [newId, cleanName, cleanPhone, cleanEmail, cleanCompany, customerStatus, createdAt]
+    );
+
+    auditRepository.logAction({
+      user: 'System Admin',
+      action: 'CREATE_CUSTOMER',
+      entity: 'clients',
+      entityId: newId,
+      newValue: { id: newId, name: cleanName, phone: cleanPhone, email: cleanEmail, company: cleanCompany },
+    });
+
+    return {
+      id: newId,
+      name: cleanName,
+      phone: cleanPhone,
+      email: cleanEmail,
+      company: cleanCompany,
+      branchHistory: [],
+      totalVisits: 0,
+      lifetimeRevenue: 0,
+      latestVisit: 'N/A',
+      status: customerStatus as any,
+      visitedFacilities: [],
+      bookings: [],
+    };
+  }
+
+  public async updateCustomer(
+    id: string,
+    updates: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      company?: string;
+      status?: string;
+    }
+  ): Promise<Customer | null> {
+    const existing = await executeQuery<any>(`SELECT id, name FROM clients WHERE id = ? LIMIT 1`, [id]);
+    if (!existing || existing.length === 0) {
+      throw new Error(`Customer with ID ${id} not found.`);
+    }
+
+    const cleanName = updates.name !== undefined ? updates.name.trim() : null;
+    const cleanPhone = updates.phone !== undefined ? updates.phone.trim() : null;
+    const cleanEmail = updates.email !== undefined ? updates.email.trim().toLowerCase() : null;
+    const cleanCompany = updates.company !== undefined ? updates.company.trim() : null;
+    const cleanStatus = updates.status !== undefined ? updates.status : null;
+
+    // Check duplicate email
+    if (cleanEmail) {
+      const dup = await executeQuery<any>(
+        `SELECT id FROM clients WHERE LOWER(email) = LOWER(?) AND id != ? LIMIT 1`,
+        [cleanEmail, id]
+      );
+      if (dup && dup.length > 0) {
+        throw new Error(`Another customer with email "${cleanEmail}" already exists.`);
+      }
+    }
+
+    await executeQuery(
+      `UPDATE clients SET
+        name = COALESCE(?, name),
+        phone = COALESCE(?, phone),
+        email = COALESCE(?, email),
+        company = COALESCE(?, company),
+        status = COALESCE(?, status)
+       WHERE id = ?`,
+      [cleanName, cleanPhone, cleanEmail, cleanCompany, cleanStatus, id]
+    );
+
+    // Keep bookings in sync with updated client details
+    if (cleanName) {
+      await executeQuery(
+        `UPDATE bookings SET client_name = ? WHERE client_id = ?`,
+        [cleanName, id]
+      ).catch(() => {});
+    }
+    if (cleanPhone) {
+      await executeQuery(
+        `UPDATE bookings SET phone = ? WHERE client_id = ?`,
+        [cleanPhone, id]
+      ).catch(() => {});
+    }
+    if (cleanEmail) {
+      await executeQuery(
+        `UPDATE bookings SET email = ? WHERE client_id = ?`,
+        [cleanEmail, id]
+      ).catch(() => {});
+    }
+
+    auditRepository.logAction({
+      user: 'System Admin',
+      action: 'UPDATE_CUSTOMER',
+      entity: 'clients',
+      entityId: id,
+      newValue: updates,
+    });
+
+    return await this.getCustomerById(id);
+  }
+
+  public async deleteCustomer(id: string): Promise<boolean> {
+    const bookings = await executeQuery<any>(`SELECT id FROM bookings WHERE client_id = ? LIMIT 1`, [id]);
+    if (bookings && bookings.length > 0) {
+      // Protect financial/booking records - deactivate rather than hard delete
+      await executeQuery(`UPDATE clients SET status = 'Inactive' WHERE id = ?`, [id]);
+      auditRepository.logAction({
+        user: 'System Admin',
+        action: 'DEACTIVATE_CUSTOMER',
+        entity: 'clients',
+        entityId: id,
+        newValue: { status: 'Inactive', reason: 'Protected historical booking records' },
+      });
+      return true;
+    }
+
+    await executeQuery(`DELETE FROM clients WHERE id = ?`, [id]);
+    auditRepository.logAction({
+      user: 'System Admin',
+      action: 'DELETE_CUSTOMER',
+      entity: 'clients',
+      entityId: id,
+    });
+    return true;
+  }
+
   public async getAllCustomers(filters?: CustomerFilters): Promise<Customer[]> {
     try {
       // Fetch clients and bookings from database
-      const clientRows = await executeQuery<any>(`SELECT id, name, phone, email, company FROM clients`);
+      const clientRows = await executeQuery<any>(`SELECT id, name, phone, email, company, status FROM clients`);
       const bookingRows = await executeQuery<any>(
         `SELECT id, date, client_id as clientId, client_name as clientName, phone, email, branch, facility, days_count as daysCount, time_duration as timeDuration, amount, payment_method as paymentMethod, days_used as daysUsed, days_left as daysLeft, status FROM bookings ORDER BY date DESC`
       );
@@ -17,6 +233,7 @@ export class CustomerRepository {
         phone: string;
         email?: string;
         company?: string;
+        dbStatus?: string;
         bookings: Booking[];
       }>();
 
@@ -27,6 +244,7 @@ export class CustomerRepository {
           phone: c.phone || '',
           email: c.email || '',
           company: c.company || '',
+          dbStatus: c.status || 'Active',
           bookings: [],
         });
       }
@@ -34,7 +252,7 @@ export class CustomerRepository {
       for (const b of bookingRows) {
         const formattedBooking: Booking = {
           id: b.id,
-          date: b.date ? String(b.date).substring(0, 10) : new Date().toISOString().substring(0, 10),
+          date: formatDateToISO(b.date),
           clientId: b.clientId,
           clientName: b.clientName,
           phone: b.phone || '',
@@ -57,6 +275,7 @@ export class CustomerRepository {
             name: formattedBooking.clientName,
             phone: formattedBooking.phone,
             email: formattedBooking.email,
+            dbStatus: 'Active',
             bookings: [],
           });
         }
@@ -74,7 +293,12 @@ export class CustomerRepository {
         const branchHistory = Array.from(new Set(c.bookings.map((b) => b.branch)));
         const visitedFacilities = Array.from(new Set(c.bookings.map((b) => b.facility)));
         const totalVisits = c.bookings.length;
-        const lifetimeRevenue = c.bookings.reduce((sum, b) => sum + b.amount, 0);
+
+        // Qualifying lifetime revenue: exclude cancelled bookings
+        const lifetimeRevenue = c.bookings
+          .filter((b) => b.status !== 'Cancelled')
+          .reduce((sum, b) => sum + b.amount, 0);
+
         const latestVisit = sortedBookings[0] ? sortedBookings[0].date : 'N/A';
 
         const activeBooking = c.bookings.find(
@@ -82,7 +306,7 @@ export class CustomerRepository {
         );
 
         let activeSub: ActiveSubscription | undefined = undefined;
-        let customerStatus: Customer['status'] = 'Inactive';
+        let customerStatus: Customer['status'] = (c.dbStatus as any) || 'Active';
 
         if (activeBooking) {
           const daysRemaining = activeBooking.daysLeft;
@@ -92,6 +316,9 @@ export class CustomerRepository {
               : daysRemaining <= 5
               ? 'Expiring Soon'
               : 'Active';
+
+          const bookingDate = new Date(activeBooking.date);
+          const endDate = new Date(bookingDate.getTime() + activeBooking.daysCount * 24 * 60 * 60 * 1000);
 
           activeSub = {
             id: `SUB-${activeBooking.id}`,
@@ -103,12 +330,7 @@ export class CustomerRepository {
             facility: activeBooking.facility,
             branch: activeBooking.branch,
             startDate: activeBooking.date,
-            endDate: new Date(
-              new Date(activeBooking.date).getTime() +
-                activeBooking.daysCount * 24 * 60 * 60 * 1000
-            )
-              .toISOString()
-              .slice(0, 10),
+            endDate: formatDateToISO(endDate),
             daysCount: activeBooking.daysCount,
             daysUsed: activeBooking.daysUsed,
             daysRemaining: daysRemaining,
@@ -130,8 +352,10 @@ export class CustomerRepository {
           customerStatus = 'Expired';
         } else if (lifetimeRevenue >= 30000) {
           customerStatus = 'VIP';
-        } else if (totalVisits > 0) {
+        } else if (c.dbStatus === 'Inactive') {
           customerStatus = 'Inactive';
+        } else if (totalVisits === 0) {
+          customerStatus = 'Active';
         }
 
         return {
@@ -158,7 +382,8 @@ export class CustomerRepository {
             c.name.toLowerCase().includes(q) ||
             c.id.toLowerCase().includes(q) ||
             c.phone.includes(q) ||
-            (c.email && c.email.toLowerCase().includes(q))
+            (c.email && c.email.toLowerCase().includes(q)) ||
+            (c.company && c.company.toLowerCase().includes(q))
         );
       }
 
@@ -174,11 +399,10 @@ export class CustomerRepository {
             branchTerms.push(matched.id.toLowerCase());
             branchTerms.push(matched.name.toLowerCase());
           }
-        } catch (e) {
-          // Fallback if query fails
-        }
+        } catch (e) {}
 
         customersList = customersList.filter((c) =>
+          c.branchHistory.length === 0 ||
           c.branchHistory.some((bh) => {
             const bhLower = bh.toLowerCase();
             return branchTerms.some((term) => bhLower.includes(term) || term.includes(bhLower));
@@ -200,6 +424,8 @@ export class CustomerRepository {
           );
         } else if (s === 'inactive') {
           customersList = customersList.filter((c) => c.status === 'Inactive');
+        } else if (s === 'vip') {
+          customersList = customersList.filter((c) => c.status === 'VIP');
         } else {
           customersList = customersList.filter((c) => c.status === filters.status);
         }
@@ -245,6 +471,9 @@ export class CustomerRepository {
       } else {
         const recentBooking = c.bookings[0];
         if (recentBooking && recentBooking.status === 'Expired') {
+          const bookingDate = new Date(recentBooking.date);
+          const endDate = new Date(bookingDate.getTime() + recentBooking.daysCount * 24 * 60 * 60 * 1000);
+
           subscriptions.push({
             id: `SUB-${recentBooking.id}`,
             bookingId: recentBooking.id,
@@ -255,12 +484,7 @@ export class CustomerRepository {
             facility: recentBooking.facility,
             branch: recentBooking.branch,
             startDate: recentBooking.date,
-            endDate: new Date(
-              new Date(recentBooking.date).getTime() +
-                recentBooking.daysCount * 24 * 60 * 60 * 1000
-            )
-              .toISOString()
-              .slice(0, 10),
+            endDate: formatDateToISO(endDate),
             daysCount: recentBooking.daysCount,
             daysUsed: recentBooking.daysUsed,
             daysRemaining: 0,

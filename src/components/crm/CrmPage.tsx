@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Customer, Branch } from '../../types';
 import { AdminApiService } from '../../services/adminService';
+import { CustomerModal } from './CustomerModal';
 
 interface CrmPageProps {
   customers: Customer[];
@@ -26,6 +27,13 @@ interface CrmPageProps {
   onStatusChange: (val: string) => void;
   // Actions
   onOpenCustomerProfile: (customer: Customer) => void;
+  onCreateCustomer?: (data: {
+    name: string;
+    phone?: string;
+    email?: string;
+    company?: string;
+    status?: string;
+  }) => Promise<any>;
   onExportCSV: () => void;
   onExportExcel: () => void;
 }
@@ -44,10 +52,19 @@ export const CrmPage: React.FC<CrmPageProps> = ({
   status,
   onStatusChange,
   onOpenCustomerProfile,
+  onCreateCustomer,
   onExportCSV,
   onExportExcel,
 }) => {
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, branch, sort, status]);
 
   // Dropdown states for custom filters
   const [showBranchMenu, setShowBranchMenu] = useState(false);
@@ -126,8 +143,18 @@ export const CrmPage: React.FC<CrmPageProps> = ({
           </h1>
         </div>
 
-        {/* Export Buttons */}
+        {/* Actions & Export Buttons */}
         <div className="flex items-center gap-2">
+          {onCreateCustomer && (
+            <button
+              onClick={() => setIsNewCustomerModalOpen(true)}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
+            >
+              <i className="fa-solid fa-user-plus text-xs"></i>
+              <span>New Customer</span>
+            </button>
+          )}
+
           <button
             onClick={onExportCSV}
             className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer"
@@ -439,7 +466,9 @@ export const CrmPage: React.FC<CrmPageProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-xs">
-                {customers.map((c) => (
+                {customers
+                  .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                  .map((c) => (
                   <tr
                     key={c.id}
                     onClick={() => onOpenCustomerProfile(c)}
@@ -542,7 +571,67 @@ export const CrmPage: React.FC<CrmPageProps> = ({
             </table>
           </div>
         )}
+
+        {/* Pagination Footer */}
+        {customers.length > 0 && (
+          <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
+            <div>
+              Showing{' '}
+              <strong className="text-gray-900">
+                {(currentPage - 1) * pageSize + 1}
+              </strong>{' '}
+              to{' '}
+              <strong className="text-gray-900">
+                {Math.min(currentPage * pageSize, customers.length)}
+              </strong>{' '}
+              of <strong className="text-gray-900">{customers.length}</strong> customers
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <i className="fa-solid fa-chevron-left mr-1"></i>
+                Previous
+              </button>
+
+              <span className="px-2 text-xs font-medium text-gray-700">
+                Page {currentPage} of {Math.ceil(customers.length / pageSize) || 1}
+              </span>
+
+              <button
+                type="button"
+                disabled={currentPage >= Math.ceil(customers.length / pageSize)}
+                onClick={() =>
+                  setCurrentPage((p) =>
+                    Math.min(Math.ceil(customers.length / pageSize), p + 1)
+                  )
+                }
+                className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <i className="fa-solid fa-chevron-right ml-1"></i>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Create New Customer Modal */}
+      {isNewCustomerModalOpen && (
+        <CustomerModal
+          isOpen={isNewCustomerModalOpen}
+          onClose={() => setIsNewCustomerModalOpen(false)}
+          onSubmit={async (data) => {
+            if (onCreateCustomer) {
+              await onCreateCustomer(data);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

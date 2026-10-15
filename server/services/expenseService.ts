@@ -37,6 +37,10 @@ export class ExpenseService {
     return updated;
   }
 
+  public async deleteExpense(id: string): Promise<boolean> {
+    return await this.repository.deleteExpense(id);
+  }
+
   // Category Service Methods
   public async getCategories(): Promise<ExpenseCategory[]> {
     return await this.repository.getCategories();

@@ -104,6 +104,16 @@ export function useExpenses(initialBranch: string = 'all') {
     }
   };
 
+  const deleteExpense = async (id: string) => {
+    try {
+      const success = await ExpenseApiService.deleteExpense(id);
+      await loadExpenses();
+      return success;
+    } catch (err: any) {
+      throw err;
+    }
+  };
+
   return {
     expenses,
     summary,
@@ -124,6 +134,7 @@ export function useExpenses(initialBranch: string = 'all') {
     setCategory,
     addExpense,
     editExpense,
+    deleteExpense,
     refresh: loadExpenses,
     refreshCategories: loadCategories,
   };

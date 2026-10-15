@@ -17,15 +17,19 @@ export class CustomerService {
     const customers = await this.repository.getAllCustomers(filters);
     const allCustomers = await this.repository.getAllCustomers({});
 
-    const totalCustomers = allCustomers.length;
-    const totalRevenue = allCustomers.reduce((sum, c) => sum + c.lifetimeRevenue, 0);
-    const activeSubscriptionsCount = allCustomers.filter(
+    const branchFiltered = filters?.branch && filters.branch !== 'all'
+      ? await this.repository.getAllCustomers({ branch: filters.branch })
+      : allCustomers;
+
+    const totalCustomers = branchFiltered.length;
+    const totalRevenue = branchFiltered.reduce((sum, c) => sum + c.lifetimeRevenue, 0);
+    const activeSubscriptionsCount = branchFiltered.filter(
       (c) => c.activeSubscription && c.activeSubscription.status === 'Active'
     ).length;
-    const expiringSoonCount = allCustomers.filter(
+    const expiringSoonCount = branchFiltered.filter(
       (c) => c.activeSubscription && c.activeSubscription.status === 'Expiring Soon'
     ).length;
-    const expiredSubscriptionsCount = allCustomers.filter(
+    const expiredSubscriptionsCount = branchFiltered.filter(
       (c) => c.status === 'Expired' || (c.activeSubscription && c.activeSubscription.status === 'Expired')
     ).length;
 
@@ -43,6 +47,33 @@ export class CustomerService {
 
   public async getCustomerById(id: string): Promise<Customer | null> {
     return await this.repository.getCustomerById(id);
+  }
+
+  public async createCustomer(data: {
+    name: string;
+    phone?: string;
+    email?: string;
+    company?: string;
+    status?: string;
+  }): Promise<Customer> {
+    return await this.repository.createCustomer(data);
+  }
+
+  public async updateCustomer(
+    id: string,
+    updates: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      company?: string;
+      status?: string;
+    }
+  ): Promise<Customer | null> {
+    return await this.repository.updateCustomer(id, updates);
+  }
+
+  public async deleteCustomer(id: string): Promise<boolean> {
+    return await this.repository.deleteCustomer(id);
   }
 
   public async getActiveSubscriptions(filters?: SubscriptionFilters): Promise<ActiveSubscription[]> {

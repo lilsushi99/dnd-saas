@@ -28,11 +28,22 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   id,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => String(opt.id) === String(value));
 
-  // Close on outside click or Escape key
+  // Reset highlighted index when opening/closing
+  useEffect(() => {
+    if (isOpen) {
+      const idx = options.findIndex((opt) => String(opt.id) === String(value));
+      setHighlightedIndex(idx >= 0 ? idx : 0);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [isOpen, value, options]);
+
+  // Close on outside click or keyboard navigation (Escape, Arrows, Enter)
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -40,8 +51,37 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) {
+        if (
+          containerRef.current &&
+          containerRef.current.contains(document.activeElement) &&
+          (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown')
+        ) {
+          e.preventDefault();
+          setIsOpen(true);
+        }
+        return;
+      }
+
       if (e.key === 'Escape') {
+        e.preventDefault();
         setIsOpen(false);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < options.length - 1 ? prev + 1 : 0
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : options.length - 1
+        );
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (highlightedIndex >= 0 && highlightedIndex < options.length) {
+          onChange(options[highlightedIndex].id);
+          setIsOpen(false);
+        }
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -50,7 +90,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [isOpen, highlightedIndex, options, onChange]);
 
   return (
     <div className="relative font-sans w-full" ref={containerRef} id={id}>
@@ -82,8 +122,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
               No options available
             </div>
           ) : (
-            options.map((opt) => {
+            options.map((opt, idx) => {
               const isSelected = String(opt.id) === String(value);
+              const isHighlighted = idx === highlightedIndex;
               return (
                 <button
                   key={opt.id}
@@ -92,9 +133,12 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                     onChange(opt.id);
                     setIsOpen(false);
                   }}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
                   className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-between gap-2 ${
                     isSelected
                       ? 'bg-blue-50 text-blue-700 font-medium'
+                      : isHighlighted
+                      ? 'bg-blue-50/70 text-blue-700 font-medium'
                       : 'hover:bg-blue-50/70 hover:text-blue-700 text-gray-700'
                   }`}
                 >

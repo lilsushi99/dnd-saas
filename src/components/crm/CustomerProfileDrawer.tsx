@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import { Customer } from '../../types';
+import { CustomerModal } from './CustomerModal';
 
 interface CustomerProfileDrawerProps {
   customer: Customer | null;
   isOpen: boolean;
   onClose: () => void;
+  onUpdateCustomer?: (id: string, updates: any) => Promise<any>;
 }
 
 export const CustomerProfileDrawer: React.FC<CustomerProfileDrawerProps> = ({
   customer,
   isOpen,
   onClose,
+  onUpdateCustomer,
 }) => {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'bookings' | 'subscription' | 'messaging'
   >('overview');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   if (!isOpen || !customer) return null;
 
@@ -76,12 +80,22 @@ export const CustomerProfileDrawer: React.FC<CustomerProfileDrawerProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
-            >
-              <i className="fa-solid fa-xmark text-lg"></i>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                title="Edit Customer Profile"
+              >
+                <i className="fa-solid fa-pen-to-square text-xs text-blue-600"></i>
+                <span>Edit Profile</span>
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
           </div>
 
           {/* Navigation Tabs */}
@@ -575,6 +589,20 @@ export const CustomerProfileDrawer: React.FC<CustomerProfileDrawerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Edit Customer Modal */}
+      {isEditModalOpen && (
+        <CustomerModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          initialData={customer}
+          onSubmit={async (updates) => {
+            if (onUpdateCustomer) {
+              await onUpdateCustomer(customer.id, updates);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

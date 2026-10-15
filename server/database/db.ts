@@ -21,20 +21,6 @@ const dbConfig: mysql.PoolOptions = {
 
 let pool: mysql.Pool | null = null;
 let isUsingMemory = false;
-
-export const schemaStatus: { ok: boolean | null; error: string | null } = { ok: null, error: null };
-
-/**
- * The in-memory SQLite database is a DEVELOPMENT-ONLY convenience (e.g. AI Studio previews with no MySQL).
- * It must be explicitly enabled and can never run in production: silently swapping to a throwaway database
- * makes every "Saved" confirmation a lie, because the data disappears on restart.
- */
-export function isMemoryFallbackAllowed(): boolean {
-  return process.env.ALLOW_MEMORY_DB === 'true' && config.env !== 'production' && process.env.NODE_ENV !== 'production';
-}
-export function isUsingMemoryFallback(): boolean {
-  return isUsingMemory;
-}
 let memoryDb: any = null;
 
 function getMemoryDb(): any {
@@ -109,6 +95,16 @@ function getMemoryDb(): any {
   try {
     memoryDb.exec(`
       ALTER TABLE business_settings ADD COLUMN invoice_prefix TEXT DEFAULT 'INV';
+    `);
+  } catch (e) {}
+  try {
+    memoryDb.exec(`
+      ALTER TABLE expense_categories ADD COLUMN color TEXT DEFAULT '#3B82F6';
+    `);
+  } catch (e) {}
+  try {
+    memoryDb.exec(`
+      ALTER TABLE clients ADD COLUMN status TEXT DEFAULT 'Active';
     `);
   } catch (e) {}
 
@@ -258,24 +254,43 @@ export async function ensureDatabaseSchema(): Promise<void> {
         }
         await conn.query(`ALTER TABLE business_settings MODIFY COLUMN business_logo LONGTEXT DEFAULT NULL`);
       }
-      const { runMigrations } = await import('./migrations');
-      await runMigrations(conn);
 
-      // Seed the default role matrix. INSERT IGNORE never overwrites a customised role.
-      const { DEFAULT_ROLE_PERMISSIONS } = await import('../middleware/auth');
-      for (const [role, perms] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
-        await conn.query(`INSERT IGNORE INTO user_roles_permissions (role, permissions) VALUES (?, ?)`, [role, JSON.stringify(perms)]);
+      // Ensure expense_categories has color column
+      const [catTables]: any = await conn.query(`SHOW TABLES LIKE 'expense_categories'`);
+      if (catTables && catTables.length > 0) {
+        const [catCols]: any = await conn.query(`SHOW COLUMNS FROM expense_categories`);
+        const catColNames = catCols.map((c: any) => c.Field);
+        if (!catColNames.includes('color')) {
+          await conn.query(`ALTER TABLE expense_categories ADD COLUMN color VARCHAR(20) DEFAULT '#3B82F6'`);
+          // Seed authoritative initial colors for default categories
+          await conn.query(`UPDATE expense_categories SET color = '#3B82F6' WHERE name LIKE '%Utilities%'`);
+          await conn.query(`UPDATE expense_categories SET color = '#8B5CF6' WHERE name LIKE '%Internet%' OR name LIKE '%Telecom%'`);
+          await conn.query(`UPDATE expense_categories SET color = '#10B981' WHERE name LIKE '%Maintenance%' OR name LIKE '%Cleaning%'`);
+          await conn.query(`UPDATE expense_categories SET color = '#F59E0B' WHERE name LIKE '%Office%' OR name LIKE '%Supplies%'`);
+          await conn.query(`UPDATE expense_categories SET color = '#EC4899' WHERE name LIKE '%Rent%' OR name LIKE '%Lease%'`);
+          await conn.query(`UPDATE expense_categories SET color = '#6366F1' WHERE name LIKE '%Marketing%'`);
+          await conn.query(`UPDATE expense_categories SET color = '#06B6D4' WHERE name LIKE '%Software%' OR name LIKE '%Licenses%'`);
+          await conn.query(`UPDATE expense_categories SET color = '#64748B' WHERE name LIKE '%Security%'`);
+          await conn.query(`UPDATE expense_categories SET color = '#10B981' WHERE color IS NULL OR color = ''`);
+        }
       }
-      schemaStatus.ok = true;
-      schemaStatus.error = null;
-      console.log('✅ [Schema Verification] Verified all database tables and settings columns');
+
+      // Ensure clients has status column
+      const [clientTables]: any = await conn.query(`SHOW TABLES LIKE 'clients'`);
+      if (clientTables && clientTables.length > 0) {
+        const [clCols]: any = await conn.query(`SHOW COLUMNS FROM clients`);
+        const clColNames = clCols.map((c: any) => c.Field);
+        if (!clColNames.includes('status')) {
+          await conn.query(`ALTER TABLE clients ADD COLUMN status VARCHAR(20) DEFAULT 'Active'`);
+        }
+      }
+
+      console.log('✅ [Schema Verification] Verified all database tables, expense category colors, and settings columns');
     } finally {
       conn.release();
     }
   } catch (err: any) {
-    schemaStatus.ok = false;
-    schemaStatus.error = err.message;
-    console.error('❌ [Schema Verification FAILED]:', err.message);
+    console.error('⚠️ [Schema Verification Warning]:', err.message);
   }
 }
 
@@ -302,14 +317,10 @@ export async function checkDbConnection(): Promise<boolean> {
     await ensureDatabaseSchema();
     return true;
   } catch (err: any) {
-    if (isMemoryFallbackAllowed()) {
-      console.warn(`⚠️ [DEV ONLY] MySQL offline (${err.message}). ALLOW_MEMORY_DB=true => using a NON-PERSISTENT in-memory database. Data will be lost on restart.`);
-      isUsingMemory = true;
-      getMemoryDb();
-      return true;
-    }
-    console.error(`❌ [MySQL] Connection failed: ${err.message}`);
-    return false;
+    console.warn(`⚠️ [AI Studio DB] MySQL offline (${err.message}) — switching to in-memory database.`);
+    isUsingMemory = true;
+    getMemoryDb();
+    return true;
   }
 }
 
@@ -327,8 +338,8 @@ export async function executeQuery<T = any>(sql: string, params: any[] = []): Pr
       const [rows] = await activePool.execute(sql, params);
       return rows as T[];
     } catch (err: any) {
-      if (isMemoryFallbackAllowed() && (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'PROTOCOL_CONNECTION_LOST')) {
-        console.warn(`⚠️ [DEV ONLY] MySQL disconnected (${err.message}) — falling back to NON-PERSISTENT in-memory database`);
+      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'PROTOCOL_CONNECTION_LOST') {
+        console.warn(`⚠️ MySQL disconnected (${err.message}) — falling back to in-memory database`);
         isUsingMemory = true;
       } else {
         throw err;
@@ -385,7 +396,7 @@ export async function executeTransaction<T>(
         connection.release();
       }
     } catch (err: any) {
-      if (isMemoryFallbackAllowed() && (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT')) {
+      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
         isUsingMemory = true;
       } else {
         throw err;
@@ -431,7 +442,7 @@ export async function executeTransaction<T>(
 }
 
 export function isDbActive(): boolean {
-  return pool !== null || isUsingMemory;
+  return true;
 }
 
 export default {

@@ -31,13 +31,23 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
     setCategory,
     addExpense,
     editExpense,
+    deleteExpense,
     refresh,
   } = useExpenses(branchFilter);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
   const [dbBranches, setDbBranches] = useState<Branch[]>([]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, branch, dateFilter, startDate, endDate, category]);
 
   useEffect(() => {
     AdminApiService.fetchBranches()
@@ -287,18 +297,25 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
           </div>
         </div>
 
-        {/* KPI 4: Payroll */}
-        <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden">
+        {/* KPI 4: Payroll (Coming Soon) */}
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-2xs relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Payroll</span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-              <i className="fa-solid fa-users-gear text-sm"></i>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Payroll</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-medium border border-amber-200/60 flex items-center gap-1">
+                <i className="fa-solid fa-lock text-[8px]"></i>
+                Coming Soon
+              </span>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center text-sm">
+              <i className="fa-solid fa-users-gear"></i>
             </div>
           </div>
-          <div className="mt-3">
-            <span className="text-2xl font-semibold text-gray-900 tracking-tight">
-              ₦{(summary.payrollExpenses || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-2xl font-semibold text-gray-400 tracking-tight">
+              ₦0.00
             </span>
+            <span className="text-[11px] text-gray-400 font-normal">Module in development</span>
           </div>
         </div>
       </div>
@@ -341,7 +358,9 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
-                {expenses.map((e) => {
+                {expenses
+                  .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                  .map((e) => {
                   const isSplit = e.branch === 'Both Branches';
                   return (
                     <tr key={e.id} className="hover:bg-gray-50/80 transition-colors">
@@ -392,6 +411,13 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
                           >
                             <i className="fa-solid fa-pen-to-square text-sm"></i>
                           </button>
+                          <button
+                            onClick={() => setExpenseToDelete(e)}
+                            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Void / Delete Expense"
+                          >
+                            <i className="fa-solid fa-trash text-sm"></i>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -399,6 +425,53 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Footer */}
+        {expenses.length > 0 && (
+          <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
+            <div>
+              Showing{' '}
+              <strong className="text-gray-900">
+                {(currentPage - 1) * pageSize + 1}
+              </strong>{' '}
+              to{' '}
+              <strong className="text-gray-900">
+                {Math.min(currentPage * pageSize, expenses.length)}
+              </strong>{' '}
+              of <strong className="text-gray-900">{expenses.length}</strong> expenses
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <i className="fa-solid fa-chevron-left mr-1"></i>
+                Previous
+              </button>
+
+              <span className="px-2 text-xs font-medium text-gray-700">
+                Page {currentPage} of {Math.ceil(expenses.length / pageSize) || 1}
+              </span>
+
+              <button
+                type="button"
+                disabled={currentPage >= Math.ceil(expenses.length / pageSize)}
+                onClick={() =>
+                  setCurrentPage((p) =>
+                    Math.min(Math.ceil(expenses.length / pageSize), p + 1)
+                  )
+                }
+                className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <i className="fa-solid fa-chevron-right ml-1"></i>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -466,10 +539,72 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
                 Edit Expense
               </button>
               <button
+                onClick={() => {
+                  const expToDelete = selectedExpense;
+                  setSelectedExpense(null);
+                  setExpenseToDelete(expToDelete);
+                }}
+                className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium text-xs rounded-xl uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <i className="fa-solid fa-trash"></i>
+                Delete
+              </button>
+              <button
                 onClick={() => setSelectedExpense(null)}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs rounded-xl uppercase tracking-wider transition-colors cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete / Void Expense Confirmation Modal */}
+      {expenseToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-sm p-6 font-sans space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl mx-auto">
+              <i className="fa-solid fa-trash-can"></i>
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-semibold text-gray-900">Delete Expense Record?</h3>
+              <p className="text-xs text-gray-500">
+                Are you sure you want to delete <strong className="text-gray-800">{expenseToDelete.name}</strong> ({expenseToDelete.id}) for{' '}
+                <strong className="text-gray-800">₦{expenseToDelete.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>? This action will permanently remove the record and update financial summaries.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setExpenseToDelete(null)}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={async () => {
+                  try {
+                    setIsDeleting(true);
+                    await deleteExpense(expenseToDelete.id);
+                    setExpenseToDelete(null);
+                    refresh();
+                  } catch (err: any) {
+                    alert(err.message || 'Failed to delete expense');
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                ) : (
+                  <i className="fa-solid fa-trash text-xs"></i>
+                )}
+                <span>{isDeleting ? 'Deleting...' : 'Confirm Delete'}</span>
               </button>
             </div>
           </div>

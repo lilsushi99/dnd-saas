@@ -172,7 +172,17 @@ export class ExpenseRepository {
       }
 
       if (filters?.dateFilter) {
-        const todayStr = new Date().toISOString().substring(0, 10);
+        const timezone = await this.getBusinessTimezone();
+        let todayStr = new Date().toISOString().substring(0, 10);
+        try {
+          const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          });
+          todayStr = formatter.format(new Date());
+        } catch (e) {}
         const todayDate = new Date(todayStr);
 
         switch (filters.dateFilter) {
@@ -309,41 +319,69 @@ export class ExpenseRepository {
     return updated || null;
   }
 
+  public async getBusinessTimezone(): Promise<string> {
+    try {
+      const rows = await executeQuery<any>(`SELECT timezone FROM business_settings LIMIT 1`);
+      return rows[0]?.timezone || 'UTC';
+    } catch (e) {
+      return 'UTC';
+    }
+  }
+
+  public async deleteExpense(id: string): Promise<boolean> {
+    const existing = await this.getExpenseById(id);
+    if (!existing) return false;
+
+    await executeQuery(`DELETE FROM expenses WHERE id = ?`, [id]);
+
+    auditRepository.logAction({
+      user: 'System Admin',
+      action: 'DELETE_EXPENSE',
+      entity: 'expenses',
+      entityId: id,
+      previousValue: existing,
+    });
+
+    return true;
+  }
+
   public async getSummaryMetrics(filters?: ExpenseFilters): Promise<ExpenseSummaryMetrics> {
+    const isSingleBranch = filters?.branch && filters.branch !== 'all' && filters.branch.toLowerCase() !== 'both branches';
+
     const todayExpensesList = await this.getAllExpenses({ ...filters, dateFilter: 'today' });
-    const todaysExpenses = todayExpensesList.reduce((sum, e) => sum + Number(e.amount), 0);
+    const todaysExpenses = todayExpensesList.reduce((sum, e) => {
+      const isSplit = e.branch.toLowerCase() === 'both branches' || e.branch.toLowerCase() === 'all branches';
+      if (isSingleBranch && isSplit) {
+        return sum + Number(e.amount) / 2;
+      }
+      return sum + Number(e.amount);
+    }, 0);
 
     const allList = await this.getAllExpenses({ branch: filters?.branch, category: filters?.category });
     const uniqueMonths = new Set(allList.map((e) => e.date.substring(0, 7)));
-    const totalAllExpenses = allList.reduce((sum, e) => sum + Number(e.amount), 0);
+    const totalAllExpenses = allList.reduce((sum, e) => {
+      const isSplit = e.branch.toLowerCase() === 'both branches' || e.branch.toLowerCase() === 'all branches';
+      if (isSingleBranch && isSplit) {
+        return sum + Number(e.amount) / 2;
+      }
+      return sum + Number(e.amount);
+    }, 0);
     const monthCount = Math.max(1, uniqueMonths.size);
     const averageMonthlyExpenses = Math.round(totalAllExpenses / monthCount);
 
     const filteredList = await this.getAllExpenses(filters);
-    const totalExpenses = filteredList.reduce((sum, e) => sum + Number(e.amount), 0);
+    const totalExpenses = filteredList.reduce((sum, e) => {
+      const isSplit = e.branch.toLowerCase() === 'both branches' || e.branch.toLowerCase() === 'all branches';
+      if (isSingleBranch && isSplit) {
+        return sum + Number(e.amount) / 2;
+      }
+      return sum + Number(e.amount);
+    }, 0);
 
-    // Calculate Payroll Expenses from payroll_records and Payroll-category expenses in expenses table
-    let payrollFromExpenses = 0;
-    try {
-      const payrollExpRows = await executeQuery<any>(
-        `SELECT SUM(amount) as total FROM expenses WHERE (category LIKE '%Payroll%' OR name LIKE '%Payroll%')`
-      );
-      payrollFromExpenses = Number(payrollExpRows[0]?.total || 0);
-    } catch (e) {
-      console.error('Error fetching payroll from expenses:', e);
-    }
-
-    let payrollFromRecords = 0;
-    try {
-      const payrollRecRows = await executeQuery<any>(
-        `SELECT SUM(net_salary) as total FROM payroll_records WHERE payment_status = 'Paid'`
-      );
-      payrollFromRecords = Number(payrollRecRows[0]?.total || 0);
-    } catch (e) {
-      console.error('Error fetching payroll from payroll_records:', e);
-    }
-
-    const payrollExpenses = payrollFromExpenses + payrollFromRecords;
+    // Business rule: Payroll processing module is not yet operational.
+    // Ordinary expenses or payroll-labeled categories must not masquerade as payroll processing.
+    // Payroll metric is set to 0 with a 'Coming Soon' indicator.
+    const payrollExpenses = 0;
 
     return {
       todaysExpenses,
