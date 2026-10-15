@@ -202,6 +202,11 @@ export function enforceBranchScope(req: Request, res: Response, next: NextFuncti
 
 /** Replaces 5xx error text (which can contain SQL / host details) with a generic message. Full detail stays in server logs. */
 export function sanitizeServerErrors(req: Request, res: Response, next: NextFunction): void {
+  // The health endpoint intentionally returns a structured (secret-free) status body on 503.
+  if (req.path === '/health') {
+    next();
+    return;
+  }
   const originalJson = res.json.bind(res);
   res.json = ((body: any) => {
     if (res.statusCode >= 500 && body && typeof body === 'object') {
