@@ -29,9 +29,23 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const [openUpwards, setOpenUpwards] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => String(opt.id) === String(value));
+
+  // Determine dropdown orientation when opening
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < 220 && rect.top > spaceBelow) {
+        setOpenUpwards(true);
+      } else {
+        setOpenUpwards(false);
+      }
+    }
+  }, [isOpen]);
 
   // Reset highlighted index when opening/closing
   useEffect(() => {
@@ -116,7 +130,11 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 mt-2 z-50 bg-white rounded-xl shadow-xl max-h-56 overflow-y-auto p-1.5 border border-gray-100 animate-in fade-in zoom-in-95 duration-100 select-none">
+        <div
+          className={`absolute left-0 right-0 z-50 bg-white rounded-xl shadow-xl max-h-56 overflow-y-auto p-1.5 border border-gray-100 animate-in fade-in zoom-in-95 duration-100 select-none ${
+            openUpwards ? 'bottom-full mb-2' : 'mt-2'
+          }`}
+        >
           {options.length === 0 ? (
             <div className="px-3 py-2 text-xs text-gray-400 text-center">
               No options available

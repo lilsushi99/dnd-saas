@@ -17,52 +17,78 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
   onSubmit,
 }) => {
   const [date, setDate] = useState<string>(() => new Date().toISOString().substring(0, 10));
+  const [startTime, setStartTime] = useState<string>('09:00');
   const [clientName, setClientName] = useState<string>('');
   const [clientId, setClientId] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [branch, setBranch] = useState<string>('');
   const [facility, setFacility] = useState<string>('');
-  const [daysCount, setDaysCount] = useState<number>(30);
+  const [durationCount, setDurationCount] = useState<number>(1);
   const [timeDuration, setTimeDuration] = useState<string>('09:00 AM - 05:00 PM');
   const [amount, setAmount] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState<
-    'Credit Card' | 'Wire Transfer' | 'Cash' | 'Corporate Billing'
-  >('Wire Transfer');
+  const [paymentMethod, setPaymentMethod] = useState<'Transfer' | 'Cash'>('Transfer');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Authoritative Currency from System Settings
+  const [currency, setCurrency] = useState<string>('₦');
+
   // Dynamic Branches & Facilities from DB
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [allFacilities, setAllFacilities] = useState<Facility[]>([]);
 
   // Client suggestions state
   const [suggestions, setSuggestions] = useState<ClientSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Auto-generated Booking ID preview (simplified format BK-00X)
-  const [autoIdPreview, setAutoIdPreview] = useState<string>('BK-009');
+  // Auto-generated Booking ID preview
+  const [autoIdPreview, setAutoIdPreview] = useState<string>('');
 
-  // Load branches and facilities dynamically
+  // Clean reset function for resetting form state after successful submission
+  const resetFormState = () => {
+    setDate(new Date().toISOString().substring(0, 10));
+    setStartTime('09:00');
+    setClientName('');
+    setClientId('');
+    setPhone('');
+    setEmail('');
+    setFacility('');
+    setDurationCount(1);
+    setTimeDuration('09:00 AM - 05:00 PM');
+    setAmount(0);
+    setPaymentMethod('Transfer');
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setFormError(null);
+  };
+
+  // Load branches, facilities, currency and preview ID dynamically when opened
   useEffect(() => {
     if (isOpen) {
       setFormError(null);
+
+      // Load authoritative currency
+      OperationsApiService.fetchSystemSettings()
+        .then((s) => {
+          if (s?.currency) setCurrency(s.currency);
+        })
+        .catch(() => {});
+
       AdminApiService.fetchBranches()
         .then((bList) => {
-          setBranches(bList);
-          if (bList.length > 0 && !branch) {
-            setBranch(bList[0].name);
+          const activeBranches = bList.filter((b) => b.status === 'Active');
+          setBranches(activeBranches);
+          if (activeBranches.length > 0 && !branch) {
+            setBranch(activeBranches[0].name);
           }
         })
         .catch((err) => console.error('Error fetching branches:', err));
 
       AdminApiService.fetchFacilities()
         .then((fList) => {
-          setFacilities(fList);
-          if (fList.length > 0 && !facility) {
-            setFacility(fList[0].name);
-          }
+          setAllFacilities(fList);
         })
         .catch((err) => console.error('Error fetching facilities:', err));
 
@@ -72,16 +98,65 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
     }
   }, [isOpen]);
 
-  // Auto calculate amount when facility or days change
+  // Derive eligible facilities strictly belonging to the currently selected branch
+  const activeFacilities = allFacilities.filter((f) => f.status === 'Active');
+  const branchFacilities = activeFacilities.filter((f) => {
+    if (!branch) return true;
+    const branchMatch =
+      f.branchName.toLowerCase() === branch.toLowerCase() ||
+      (branches.find((b) => b.name.toLowerCase() === branch.toLowerCase())?.id === f.branchId);
+    return branchMatch;
+  });
+
+  // Handle branch change: clear facility if it no longer belongs to the new branch
+  const handleBranchChange = (newBranchName: string) => {
+    setBranch(newBranchName);
+    const eligibleForNewBranch = activeFacilities.filter((f) => {
+      return (
+        f.branchName.toLowerCase() === newBranchName.toLowerCase() ||
+        (branches.find((b) => b.name.toLowerCase() === newBranchName.toLowerCase())?.id === f.branchId)
+      );
+    });
+
+    const isCurrentFacilityValid = eligibleForNewBranch.some((f) => f.name === facility);
+    if (!isCurrentFacilityValid) {
+      if (eligibleForNewBranch.length > 0) {
+        setFacility(eligibleForNewBranch[0].name);
+      } else {
+        setFacility('');
+      }
+    }
+  };
+
+  // Determine pricing basis of the selected facility
+  const selectedFacilityObj = branchFacilities.find((f) => f.name === facility);
+  const isHourly = selectedFacilityObj?.pricingBasis === 'Per Hour';
+
+  // Auto-select first facility of current branch if facility is empty and facilities exist
   useEffect(() => {
-    const matchedFac = facilities.find((f) => f.name === facility);
-    const dailyRate = matchedFac ? matchedFac.defaultPrice : 0;
-    setAmount(dailyRate * daysCount);
-  }, [facility, daysCount, facilities]);
+    if (branch && branchFacilities.length > 0 && !facility) {
+      setFacility(branchFacilities[0].name);
+    }
+  }, [branch, branchFacilities, facility]);
+
+  // Auto calculate amount and default timeDuration when facility or duration count changes
+  useEffect(() => {
+    const rate = selectedFacilityObj ? selectedFacilityObj.defaultPrice || 0 : 0;
+    setAmount(rate * durationCount);
+
+    if (isHourly) {
+      setTimeDuration(`${startTime} (${durationCount} hour${durationCount > 1 ? 's' : ''})`);
+    } else {
+      setTimeDuration('09:00 AM - 05:00 PM');
+    }
+  }, [selectedFacilityObj, isHourly, durationCount, startTime]);
 
   // Handle client search input autocomplete
   const handleClientNameChange = async (val: string) => {
     setClientName(val);
+    // User typed a new/different name -> clear previously selected customer ID so bookings do not share customer IDs
+    setClientId('');
+
     if (val.trim().length >= 1) {
       try {
         const results = await OperationsApiService.searchClients(val);
@@ -107,7 +182,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
     setShowSuggestions(false);
   };
 
-  // Close dropdown on click outside
+  // Close suggestions dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -122,34 +197,56 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientName.trim() || !phone.trim()) {
-      setFormError('Please fill out Client Name and Phone Number.');
+    if (!clientName.trim()) {
+      setFormError('Please enter Client Name.');
+      return;
+    }
+    if (!branch.trim()) {
+      setFormError('Please select a Branch.');
+      return;
+    }
+    if (!facility.trim()) {
+      setFormError('Please select an active Facility.');
+      return;
+    }
+    if (durationCount <= 0) {
+      setFormError(`Duration must be at least 1 ${isHourly ? 'hour' : 'day'}.`);
       return;
     }
 
     setIsSubmitting(true);
     setFormError(null);
     try {
-      const generatedClientId = clientId || `CL-${Math.floor(100 + Math.random() * 900)}`;
+      // Pass duration in correct unit
+      const daysCountEquivalent = isHourly ? Math.max(1, Math.ceil(durationCount / 24)) : durationCount;
+
       await onSubmit({
         date,
         clientName: clientName.trim(),
-        clientId: generatedClientId,
+        clientId: clientId.trim(), // If empty, backend creates a fresh client ID
         phone: phone.trim(),
         email: email.trim(),
         branch,
         facility,
-        daysCount,
+        daysCount: daysCountEquivalent,
         timeDuration,
         amount,
         paymentMethod,
         daysUsed: 1,
-        daysLeft: Math.max(0, daysCount - 1),
+        daysLeft: daysCountEquivalent,
         status: 'Active',
+        pricingBasis: isHourly ? 'Per Hour' : 'Per Day',
+        durationUnit: isHourly ? 'Hour' : 'Day',
+        durationCount,
+        startTime: `${startTime}:00`,
       });
+
+      // Reset form state ONLY after successful submission
+      resetFormState();
       onClose();
     } catch (err: any) {
       console.error(err);
+      // Preserve form state on error so user can fix and retry
       setFormError(err.message || 'Failed to save booking. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -161,23 +258,24 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
     label: b.name,
   }));
 
-  const facilityOptions = facilities.map((f) => ({
+  const facilityOptions = branchFacilities.map((f) => ({
     id: f.name,
     label: f.name,
-    subLabel: `Capacity: ${f.capacity} • ₦${f.defaultPrice.toLocaleString()}/day`,
+    subLabel: `Capacity: ${f.capacity} • ${currency}${Number(f.defaultPrice || 0).toLocaleString()} / ${
+      f.pricingBasis === 'Per Hour' ? 'hr' : 'day'
+    }`,
   }));
 
+  // Allowed payment methods restricted strictly to Transfer and Cash
   const paymentOptions = [
-    { id: 'Wire Transfer', label: 'Wire Transfer' },
-    { id: 'Credit Card', label: 'Credit Card' },
+    { id: 'Transfer', label: 'Transfer' },
     { id: 'Cash', label: 'Cash' },
-    { id: 'Corporate Billing', label: 'Corporate Billing' },
   ];
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-900/40 backdrop-blur-xs flex items-center justify-center p-4 font-sans overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-8">
-        {/* Modal Header: Only the relevant icon and New Reception Booking (no subtitle) */}
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl animate-in fade-in zoom-in-95 duration-150 my-8">
+        {/* Modal Header */}
         <div className="px-6 py-4.5 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm">
@@ -214,7 +312,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
               <input
                 type="text"
                 readOnly
-                value={autoIdPreview}
+                value={autoIdPreview || 'Loading...'}
                 className="w-full px-3.5 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-mono font-medium cursor-not-allowed select-all"
               />
             </div>
@@ -266,7 +364,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
                         {c.name}
                       </div>
                       <div className="text-[10px] text-gray-400 mt-0.5">
-                        {c.phone} • {c.email || 'No Email'}
+                        {c.phone ? c.phone : 'No Phone'} • {c.email || 'No Email'}
                       </div>
                     </div>
                     <span className="text-[10px] font-mono font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
@@ -279,21 +377,20 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
             {clientId && (
               <div className="mt-1 text-[11px] font-medium text-emerald-600 flex items-center gap-1">
                 <i className="fa-solid fa-circle-check text-[10px]"></i>
-                Matched Client ID: <span className="font-mono font-medium">{clientId}</span>
+                Referencing Client ID: <span className="font-mono font-medium">{clientId}</span>
               </div>
             )}
           </div>
 
-          {/* Contact Details Row */}
+          {/* Contact Details Row - Phone number is NOT mandatory (No "Optional" label) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                Phone Number *
+                Phone Number
               </label>
               <input
                 type="text"
-                required
-                placeholder="+1 (555) 000-0000"
+                placeholder="+234 800 000 0000"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
@@ -302,7 +399,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                Optional Email
+                Email Address
               </label>
               <input
                 type="email"
@@ -314,7 +411,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
             </div>
           </div>
 
-          {/* Branch & Facility Row with CustomSelect */}
+          {/* Branch & Facility Row with strictly filtered facilities */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
@@ -323,7 +420,7 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
               <CustomSelect
                 options={branchOptions}
                 value={branch}
-                onChange={setBranch}
+                onChange={handleBranchChange}
                 placeholder="Select branch"
               />
             </div>
@@ -336,35 +433,35 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
                 options={facilityOptions}
                 value={facility}
                 onChange={setFacility}
-                placeholder="Select facility"
+                placeholder={branchFacilities.length === 0 ? 'No facilities in this branch' : 'Select facility'}
               />
             </div>
           </div>
 
-          {/* Duration & Time Range Row */}
+          {/* Duration & Time Range Row - Dynamic based on facility pricing basis */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                Number of Days
+                {isHourly ? 'Number of Hours *' : 'Number of Days *'}
               </label>
               <input
                 type="number"
                 min={1}
-                max={365}
-                value={daysCount}
-                onChange={(e) => setDaysCount(parseInt(e.target.value) || 1)}
+                max={isHourly ? 720 : 365}
+                value={durationCount}
+                onChange={(e) => setDurationCount(Math.max(1, parseInt(e.target.value) || 1))}
                 className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                Time Duration
+                Arrival / Start Time
               </label>
               <input
-                type="text"
-                value={timeDuration}
-                onChange={(e) => setTimeDuration(e.target.value)}
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100/70 focus:bg-white rounded-xl text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
               />
             </div>
@@ -374,10 +471,10 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                Total Amount (₦)
+                Total Amount ({currency})
               </label>
               <div className="relative">
-                <span className="absolute left-3.5 top-2.5 text-gray-400 font-medium">₦</span>
+                <span className="absolute left-3.5 top-2.5 text-gray-400 font-medium">{currency}</span>
                 <input
                   type="number"
                   required
@@ -389,14 +486,14 @@ export const NewBookingModal: React.FC<NewBookingModalProps> = ({
               </div>
             </div>
 
-            <div>
+            <div className="relative">
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
                 Payment Method
               </label>
               <CustomSelect
                 options={paymentOptions}
                 value={paymentMethod}
-                onChange={setPaymentMethod}
+                onChange={(val) => setPaymentMethod(val as 'Transfer' | 'Cash')}
                 placeholder="Select payment method"
               />
             </div>

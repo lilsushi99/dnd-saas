@@ -4,6 +4,7 @@ import path from 'path';
 import bcrypt from 'bcryptjs';
 import { DatabaseSync } from 'node:sqlite';
 import config from '../config/config';
+import { runMigrations } from './migrations';
 
 const dbConfig: mysql.PoolOptions = {
   host: config.db.host,
@@ -22,6 +23,17 @@ const dbConfig: mysql.PoolOptions = {
 let pool: mysql.Pool | null = null;
 let isUsingMemory = false;
 let memoryDb: any = null;
+
+export const schemaStatus: { ok: boolean | null } = { ok: null };
+
+export function isUsingMemoryFallback(): boolean {
+  return isUsingMemory;
+}
+
+export function isMemoryFallbackAllowed(): boolean {
+  if (process.env.NODE_ENV === 'production') return false;
+  return process.env.ALLOW_MEMORY_DB === 'true';
+}
 
 function getMemoryDb(): any {
   if (memoryDb) return memoryDb;
@@ -105,6 +117,26 @@ function getMemoryDb(): any {
   try {
     memoryDb.exec(`
       ALTER TABLE clients ADD COLUMN status TEXT DEFAULT 'Active';
+    `);
+  } catch (e) {}
+  try {
+    memoryDb.exec(`
+      ALTER TABLE facilities ADD COLUMN pricing_basis TEXT DEFAULT 'Per Day';
+    `);
+  } catch (e) {}
+  try {
+    memoryDb.exec(`
+      ALTER TABLE bookings ADD COLUMN duration_unit TEXT DEFAULT 'Day';
+    `);
+  } catch (e) {}
+  try {
+    memoryDb.exec(`
+      ALTER TABLE bookings ADD COLUMN start_time TEXT DEFAULT '09:00:00';
+    `);
+  } catch (e) {}
+  try {
+    memoryDb.exec(`
+      ALTER TABLE bookings ADD COLUMN end_time TEXT DEFAULT '17:00:00';
     `);
   } catch (e) {}
 
@@ -235,6 +267,17 @@ export async function ensureDatabaseSchema(): Promise<void> {
     const conn = await activePool.getConnection();
 
     try {
+      try {
+        await runMigrations({
+          query: async (sql: string, params: any[] = []) => {
+            const [rows] = await conn.query(sql, params);
+            return [rows];
+          },
+        });
+      } catch (migErr: any) {
+        console.warn('⚠️ [Migration Notice]:', migErr.message);
+      }
+
       const [tables]: any = await conn.query(`SHOW TABLES LIKE 'business_settings'`);
       if (tables && tables.length > 0) {
         const [columns]: any = await conn.query(`SHOW COLUMNS FROM business_settings`);
@@ -285,11 +328,13 @@ export async function ensureDatabaseSchema(): Promise<void> {
         }
       }
 
+      schemaStatus.ok = true;
       console.log('✅ [Schema Verification] Verified all database tables, expense category colors, and settings columns');
     } finally {
       conn.release();
     }
   } catch (err: any) {
+    schemaStatus.ok = false;
     console.error('⚠️ [Schema Verification Warning]:', err.message);
   }
 }

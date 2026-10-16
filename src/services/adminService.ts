@@ -37,7 +37,7 @@ export class AdminApiService {
     return this.request<Facility[]>('/api/admin/facilities');
   }
 
-  public static async createFacility(facility: { name: string; branchId: string; defaultPrice?: number; status: 'Active' | 'Inactive' }): Promise<Facility> {
+  public static async createFacility(facility: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status: 'Active' | 'Inactive'; pricingBasis?: 'Per Hour' | 'Per Day' }): Promise<Facility> {
     return this.request<Facility>('/api/admin/facilities', {
       method: 'POST',
       body: JSON.stringify(facility),

@@ -33,29 +33,30 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
   const branchRef = useRef<HTMLDivElement>(null);
   const dateRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const loadBranches = () => {
     AdminApiService.fetchBranches()
       .then((bList) => setDbBranches(bList))
       .catch((err) => console.error('Error loading branches in FacilityRecords:', err));
+  };
+
+  useEffect(() => {
+    loadBranches();
+
+    const handleRefresh = () => {
+      loadBranches();
+    };
+
+    window.addEventListener('nexus:refresh-branches', handleRefresh);
+    return () => window.removeEventListener('nexus:refresh-branches', handleRefresh);
   }, []);
 
-  // Close dropdowns on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
-        setShowBranchMenu(false);
-      }
-      if (dateRef.current && !dateRef.current.contains(e.target as Node)) {
-        setShowDateMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const activeBranches = dbBranches.filter((b) => b.status === 'Active');
+  const inactiveBranches = dbBranches.filter((b) => b.status === 'Inactive');
 
   const branches = [
-    { id: 'all', label: 'All Branches' },
-    ...dbBranches.map((b) => ({ id: b.name, label: b.name })),
+    { id: 'all', label: 'All Branches', isInactive: false },
+    ...activeBranches.map((b) => ({ id: b.id, label: b.name, name: b.name, isInactive: false })),
+    ...inactiveBranches.map((b) => ({ id: b.id, label: `${b.name} (Inactive)`, name: b.name, isInactive: true })),
   ];
 
   const dateOptions = [
@@ -66,8 +67,10 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
     { id: 'custom', label: 'Custom Range' },
   ];
 
-  const currentBranchLabel =
-    branches.find((b) => b.id === branchSelect)?.label || 'All Branches';
+  const currentBranch = branches.find(
+    (b) => b.id === branchSelect || b.label === branchSelect || (b as any).name === branchSelect
+  );
+  const currentBranchLabel = currentBranch ? currentBranch.label : (branchSelect === 'all' ? 'All Branches' : branchSelect);
 
   const currentDateLabel =
     dateOptions.find((d) => d.id === dateFilter)?.label || 'This Month';
@@ -108,26 +111,39 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
 
             {showBranchMenu && (
               <div className="absolute left-0 mt-2 w-56 bg-white rounded-xl shadow-xl z-30 p-1.5 border border-gray-100 animate-in fade-in zoom-in-95 duration-100 text-xs font-normal">
-                {branches.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => {
-                      setBranchSelect(b.id);
-                      setShowBranchMenu(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
-                      branchSelect === b.id
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'hover:bg-gray-50 text-gray-700'
-                    }`}
-                  >
-                    <span>{b.label}</span>
-                    {branchSelect === b.id && (
-                      <i className="fa-solid fa-check text-[10px] text-blue-600"></i>
-                    )}
-                  </button>
-                ))}
+                {branches.map((b) => {
+                  const isSelected =
+                    branchSelect === b.id ||
+                    branchSelect === b.label ||
+                    branchSelect === (b as any).name;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        setBranchSelect(b.id);
+                        setShowBranchMenu(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-blue-50 text-blue-700 font-medium'
+                          : b.isInactive
+                          ? 'hover:bg-gray-50 text-gray-500 italic'
+                          : 'hover:bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {b.label}
+                        {b.isInactive && (
+                          <i className="fa-solid fa-ban text-[10px] text-gray-400 not-italic"></i>
+                        )}
+                      </span>
+                      {isSelected && (
+                        <i className="fa-solid fa-check text-[10px] text-blue-600"></i>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

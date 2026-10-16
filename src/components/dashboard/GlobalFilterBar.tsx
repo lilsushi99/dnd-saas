@@ -5,7 +5,7 @@ import { AdminApiService } from '../../services/adminService';
 interface GlobalFilterBarProps {
   filters: DashboardFilters;
   onFilterChange: (filters: DashboardFilters) => void;
-  onExport: (format: 'csv' | 'pdf') => void;
+  onExport: (format: 'excel' | 'csv' | 'pdf') => void;
 }
 
 export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
@@ -22,10 +22,21 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
   const dateRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const loadBranches = () => {
     AdminApiService.fetchBranches()
       .then((data) => setDbBranches(data))
       .catch((err) => console.error('Failed to load branches in filter bar:', err));
+  };
+
+  useEffect(() => {
+    loadBranches();
+
+    const handleRefresh = () => {
+      loadBranches();
+    };
+
+    window.addEventListener('nexus:refresh-branches', handleRefresh);
+    return () => window.removeEventListener('nexus:refresh-branches', handleRefresh);
   }, []);
 
   // Close dropdowns on outside click
@@ -45,9 +56,13 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const activeBranches = dbBranches.filter((b) => b.status === 'Active');
+  const inactiveBranches = dbBranches.filter((b) => b.status === 'Inactive');
+
   const branchOptions = [
-    { id: 'all', label: 'All Branches' },
-    ...dbBranches.map((b) => ({ id: b.id, label: b.name })),
+    { id: 'all', label: 'All Branches', isInactive: false },
+    ...activeBranches.map((b) => ({ id: b.id, label: b.name, isInactive: false })),
+    ...inactiveBranches.map((b) => ({ id: b.id, label: `${b.name} (Inactive)`, isInactive: true })),
   ];
 
   const dateRanges = [
@@ -109,7 +124,7 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
           </button>
 
           {showBranchMenu && (
-            <div className="absolute left-0 mt-2 w-52 bg-white rounded-xl shadow-lg z-30 p-1.5 text-xs font-normal text-gray-700 animate-in fade-in duration-100">
+            <div className="absolute left-0 mt-2 w-56 bg-white rounded-xl shadow-lg z-30 p-1.5 text-xs font-normal text-gray-700 animate-in fade-in duration-100">
               {branchOptions.map((b) => (
                 <button
                   key={b.id}
@@ -121,10 +136,17 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
                   className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
                     filters.branch === b.id
                       ? 'bg-blue-50 text-blue-700 font-medium'
+                      : b.isInactive
+                      ? 'hover:bg-gray-50 text-gray-500 italic'
                       : 'hover:bg-gray-50 text-gray-700'
                   }`}
                 >
-                  <span>{b.label}</span>
+                  <span className="flex items-center gap-1.5">
+                    {b.label}
+                    {b.isInactive && (
+                      <i className="fa-solid fa-ban text-[10px] text-gray-400 not-italic"></i>
+                    )}
+                  </span>
                   {filters.branch === b.id && (
                     <i className="fa-solid fa-check text-[10px] text-blue-600"></i>
                   )}
@@ -199,52 +221,16 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
         )}
       </div>
 
-      {/* Right: Export Dashboard Button */}
-      <div className="relative" ref={exportRef}>
+      {/* Right: Export Dashboard Button (Section D: Primary Excel Workbook Export) */}
+      <div>
         <button
           type="button"
-          onClick={() => {
-            setShowExportMenu(!showExportMenu);
-            setShowBranchMenu(false);
-            setShowDateMenu(false);
-          }}
-          className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-medium text-gray-700 flex items-center gap-2 transition-colors cursor-pointer"
+          onClick={() => onExport('excel')}
+          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-medium flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
         >
-          <i className="fa-solid fa-file-export text-gray-400 text-xs"></i>
-          <span>Export Dashboard</span>
-          <i
-            className={`fa-solid fa-chevron-down text-[10px] text-gray-400 ml-1 transition-transform ${
-              showExportMenu ? 'rotate-180' : ''
-            }`}
-          ></i>
+          <i className="fa-solid fa-file-excel text-xs"></i>
+          <span>Export Dashboard (.xlsx)</span>
         </button>
-
-        {showExportMenu && (
-          <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg z-30 p-1.5 text-xs font-normal text-gray-700 animate-in fade-in duration-100">
-            <button
-              type="button"
-              onClick={() => {
-                onExport('csv');
-                setShowExportMenu(false);
-              }}
-              className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors cursor-pointer text-gray-700"
-            >
-              <i className="fa-solid fa-file-csv text-emerald-600 w-4"></i>
-              <span>Export as CSV</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onExport('pdf');
-                setShowExportMenu(false);
-              }}
-              className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors cursor-pointer text-gray-700"
-            >
-              <i className="fa-solid fa-file-pdf text-rose-600 w-4"></i>
-              <span>Export as PDF Report</span>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

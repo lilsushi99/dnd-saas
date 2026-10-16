@@ -5,6 +5,7 @@ import { Booking, ClientSuggestion, SystemSettings, FacilityRecordSummary } from
 import config from '../config/config';
 import { executeQuery, executeTransaction } from '../database/db';
 import { auditRepository } from './auditRepository';
+import { calculateBookingLifecycle } from '../domain/businessRules';
 
 function persistBase64Image(dataUri?: string, prefix = 'img'): string {
   if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:image/')) {
@@ -62,7 +63,7 @@ export class OperationsRepository {
     search?: string;
   }): Promise<Booking[]> {
     try {
-      let sql = `SELECT id, date, client_id as clientId, client_name as clientName, phone, email, branch, facility, days_count as daysCount, time_duration as timeDuration, amount, payment_method as paymentMethod, days_used as daysUsed, days_left as daysLeft, status, created_at as createdAt FROM bookings`;
+      let sql = `SELECT id, date, start_time as startTime, end_time as endTime, duration_unit as durationUnit, client_id as clientId, client_name as clientName, phone, email, branch, facility, days_count as daysCount, time_duration as timeDuration, amount, payment_method as paymentMethod, days_used as daysUsed, days_left as daysLeft, status, created_at as createdAt FROM bookings`;
       const whereConditions: string[] = [];
       const params: any[] = [];
 
@@ -113,14 +114,29 @@ export class OperationsRepository {
 
       const rows = await executeQuery<any>(sql, params);
       return rows.map((r) => {
-        // Preserve the stored status. (Previously 'Cancelled' was silently rewritten to 'Active',
-        // so cancelled bookings were counted as live revenue everywhere.)
-        const KNOWN = ['Active', 'Expired', 'Upcoming', 'Cancelled'] as const;
-        const statusVal = (KNOWN as readonly string[]).includes(r.status) ? (r.status as (typeof KNOWN)[number]) : 'Active';
+        const formattedDate = formatDateToISO(r.date);
+        const lifecycle = calculateBookingLifecycle({
+          date: formattedDate,
+          startTime: r.startTime,
+          timeDuration: r.timeDuration,
+          createdAt: r.createdAt,
+          daysCount: Number(r.daysCount || 1),
+          durationUnit: r.durationUnit,
+          status: r.status,
+        });
+
+        // If the stored database status is stale (e.g. was stored Active but has now elapsed),
+        // update the database record asynchronously so it cannot remain Active indefinitely.
+        if (r.status !== 'Cancelled' && (r.status !== lifecycle.status || Number(r.daysLeft) !== lifecycle.daysLeft)) {
+          executeQuery(
+            `UPDATE bookings SET status = ?, days_left = ?, days_used = ? WHERE id = ?`,
+            [lifecycle.status, lifecycle.daysLeft, lifecycle.daysUsed, r.id]
+          ).catch(() => {});
+        }
 
         return {
           id: r.id,
-          date: formatDateToISO(r.date),
+          date: formattedDate,
           clientId: r.clientId,
           clientName: r.clientName,
           phone: r.phone || '',
@@ -130,11 +146,15 @@ export class OperationsRepository {
           daysCount: Number(r.daysCount || 1),
           timeDuration: r.timeDuration || '09:00 AM - 05:00 PM',
           amount: Number(r.amount || 0),
-          paymentMethod: r.paymentMethod || 'Cash',
-          daysUsed: Number(r.daysUsed || 0),
-          daysLeft: Number(r.daysLeft || 0),
-          status: statusVal,
+          paymentMethod: r.paymentMethod || 'Transfer',
+          daysUsed: lifecycle.daysUsed,
+          daysLeft: lifecycle.daysLeft,
+          status: r.status === 'Cancelled' ? 'Cancelled' : lifecycle.status,
           createdAt: r.createdAt ? (r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt)) : new Date().toISOString(),
+          durationUnit: lifecycle.durationUnit,
+          durationCount: lifecycle.durationCount,
+          startTime: r.startTime,
+          endTime: r.endTime,
         };
       });
     } catch (err) {
@@ -440,6 +460,30 @@ export class OperationsRepository {
       finalClientId = await this.getNextClientId();
     }
 
+    // Validate branch exists and is Active
+    const branchRows = await executeQuery<any>(
+      `SELECT id, name, status FROM branches WHERE LOWER(id) = LOWER(?) OR LOWER(name) = LOWER(?) LIMIT 1`,
+      [bookingData.branch, bookingData.branch]
+    );
+    if (branchRows.length === 0) {
+      throw new Error(`Branch "${bookingData.branch}" not found.`);
+    }
+    if (branchRows[0].status === 'Inactive') {
+      throw new Error(`Cannot create a booking for deactivated branch "${branchRows[0].name}".`);
+    }
+
+    // Validate facility exists, is Active, and belongs to this branch
+    const facilityRows = await executeQuery<any>(
+      `SELECT id, name, status, branch_id, branch_name FROM facilities WHERE (LOWER(id) = LOWER(?) OR LOWER(name) = LOWER(?)) AND (branch_id = ? OR LOWER(branch_name) = LOWER(?)) LIMIT 1`,
+      [bookingData.facility, bookingData.facility, branchRows[0].id, branchRows[0].name]
+    );
+    if (facilityRows.length === 0) {
+      throw new Error(`Facility "${bookingData.facility}" is not assigned to branch "${branchRows[0].name}".`);
+    }
+    if (facilityRows[0].status === 'Inactive') {
+      throw new Error(`Facility "${facilityRows[0].name}" is currently inactive.`);
+    }
+
     const newBooking: Booking = {
       ...bookingData,
       id: newId,
@@ -599,34 +643,67 @@ export class OperationsRepository {
     endDate?: string;
   }): Promise<FacilityRecordSummary[]> {
     try {
+      // 1. Resolve branch target ID and Name if branch filter is supplied
+      let targetBranchId: string | undefined;
+      let targetBranchName: string | undefined;
+
+      if (filters?.branch && filters.branch !== 'all' && filters.branch !== 'Both Branches') {
+        const bTrim = filters.branch.trim();
+        const branchMatches = await executeQuery<any>(
+          `SELECT id, name FROM branches WHERE id = ? OR name = ? OR LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?) LIMIT 1`,
+          [bTrim, bTrim, bTrim, bTrim]
+        );
+        if (branchMatches && branchMatches.length > 0) {
+          targetBranchId = branchMatches[0].id;
+          targetBranchName = branchMatches[0].name;
+        } else {
+          targetBranchName = bTrim;
+        }
+      }
+
+      // 2. Fetch facilities with branch information
       const dbFacilities = await executeQuery<any>(`
         SELECT f.id, f.name, f.branch_id, f.branch_name, f.capacity, f.default_price,
                COALESCE(b.location, f.branch_name) as branch_location,
-               COALESCE(b.name, f.branch_name) as clean_branch_name
+               COALESCE(b.name, f.branch_name) as clean_branch_name,
+               COALESCE(b.id, f.branch_id) as clean_branch_id
         FROM facilities f
-        LEFT JOIN branches b ON f.branch_id = b.id OR f.branch_name = b.name
+        LEFT JOIN branches b ON f.branch_id = b.id OR LOWER(f.branch_name) = LOWER(b.name)
         ORDER BY f.name ASC
       `);
 
+      // 3. Filter eligible facilities for the selected branch (if branch selected)
+      let eligibleFacilities = dbFacilities;
+      if (targetBranchId || targetBranchName) {
+        eligibleFacilities = dbFacilities.filter((f: any) => {
+          const matchId = targetBranchId && (f.branch_id === targetBranchId || f.clean_branch_id === targetBranchId);
+          const matchName = targetBranchName && (
+            (f.clean_branch_name && f.clean_branch_name.toLowerCase() === targetBranchName.toLowerCase()) ||
+            (f.branch_name && f.branch_name.toLowerCase() === targetBranchName.toLowerCase())
+          );
+          return matchId || matchName;
+        });
+      }
+
+      // 4. Build Bookings Query
       let bookingSql = `SELECT id, date, branch, facility, days_count, amount, days_used, status FROM bookings WHERE 1=1`;
       const bookingParams: any[] = [];
 
-      if (filters?.branch && filters.branch !== 'all' && filters.branch !== 'Both Branches') {
-        const b = filters.branch.trim();
-        bookingSql += ` AND (branch = ? OR branch LIKE ?)`;
-        bookingParams.push(b, `%${b}%`);
+      if (targetBranchId || targetBranchName) {
+        bookingSql += ` AND (branch = ? OR branch = ? OR branch LIKE ?)`;
+        bookingParams.push(targetBranchName || targetBranchId, targetBranchId || targetBranchName, `%${targetBranchName || targetBranchId}%`);
       }
 
       if (filters?.dateFilter) {
         const todayStr = new Date().toISOString().substring(0, 10);
         const todayDate = new Date(todayStr);
 
-        if (filters.dateFilter === 'last_7_days') {
+        if (filters.dateFilter === 'last_7_days' || filters.dateFilter === 'last_7' || filters.dateFilter === '7D') {
           const d = new Date(todayDate);
           d.setDate(d.getDate() - 7);
           bookingSql += ` AND date >= ? AND date <= ?`;
           bookingParams.push(d.toISOString().substring(0, 10), todayStr);
-        } else if (filters.dateFilter === 'last_30_days') {
+        } else if (filters.dateFilter === 'last_30_days' || filters.dateFilter === 'last_30' || filters.dateFilter === '30D') {
           const d = new Date(todayDate);
           d.setDate(d.getDate() - 30);
           bookingSql += ` AND date >= ? AND date <= ?`;
@@ -635,6 +712,10 @@ export class OperationsRepository {
           const monthStr = todayStr.substring(0, 7);
           bookingSql += ` AND CAST(date AS CHAR) LIKE ?`;
           bookingParams.push(`${monthStr}%`);
+        } else if (filters.dateFilter === 'full_year' || filters.dateFilter === 'last_12_months' || filters.dateFilter === '12M') {
+          const yearStr = todayStr.substring(0, 4);
+          bookingSql += ` AND CAST(date AS CHAR) LIKE ?`;
+          bookingParams.push(`${yearStr}%`);
         } else if (filters.dateFilter === 'custom') {
           if (filters.startDate) {
             bookingSql += ` AND date >= ?`;
@@ -649,6 +730,7 @@ export class OperationsRepository {
 
       const matchingBookings = await executeQuery<any>(bookingSql, bookingParams);
 
+      // 5. Aggregate bookings per eligible facility
       const facilityMap = new Map<string, {
         facilityName: string;
         branchName: string;
@@ -656,7 +738,7 @@ export class OperationsRepository {
         bookings: any[];
       }>();
 
-      for (const fac of dbFacilities) {
+      for (const fac of eligibleFacilities) {
         const key = `${fac.name.toLowerCase()}___${(fac.clean_branch_name || '').toLowerCase()}`;
         facilityMap.set(key, {
           facilityName: fac.name,
@@ -675,7 +757,8 @@ export class OperationsRepository {
           const existingKey = Array.from(facilityMap.keys()).find(k => k.startsWith(`${facName.toLowerCase()}___`));
           if (existingKey) {
             facilityMap.get(existingKey)!.bookings.push(bk);
-          } else {
+          } else if (!targetBranchId && !targetBranchName) {
+            // When all branches are viewed, add any additional facility with bookings
             facilityMap.set(key, {
               facilityName: facName,
               branchName: bName,
@@ -688,20 +771,9 @@ export class OperationsRepository {
         }
       }
 
-      let resultMapList = Array.from(facilityMap.values());
-
-      if (filters?.branch && filters.branch !== 'all' && filters.branch !== 'Both Branches') {
-        const targetBranch = filters.branch.toLowerCase();
-        resultMapList = resultMapList.filter(f =>
-          f.branchName.toLowerCase().includes(targetBranch) ||
-          targetBranch.includes(f.branchName.toLowerCase()) ||
-          f.bookings.length > 0
-        );
-      }
-
       const totalEnterpriseRev = matchingBookings.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
 
-      return resultMapList.map(item => {
+      return Array.from(facilityMap.values()).map(item => {
         const count = item.bookings.length;
         const revenue = item.bookings.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
         const avgSpend = count > 0 ? Math.round(revenue / count) : 0;
@@ -709,9 +781,13 @@ export class OperationsRepository {
 
         const activeCount = item.bookings.filter((b: any) => b.status === 'Active' || b.status === 'Upcoming').length;
         let occupancy = 0;
-        if (item.capacity > 0 && count > 0) {
-          occupancy = Math.min(100, Math.round((Math.max(activeCount, 1) / item.capacity) * 100));
+        if (item.capacity > 0 && activeCount > 0) {
+          occupancy = Math.min(100, Math.round((activeCount / item.capacity) * 100));
         }
+
+        let status: 'Operational' | 'Peak Load' | 'Optimal' | 'Maintenance' = 'Operational';
+        if (occupancy >= 100) status = 'Peak Load';
+        else if (occupancy >= 80) status = 'Optimal';
 
         return {
           facility: item.facilityName,
@@ -721,6 +797,7 @@ export class OperationsRepository {
           averageRevenue: avgSpend,
           percentageOfTotal,
           occupancy,
+          status,
         };
       });
     } catch (err) {

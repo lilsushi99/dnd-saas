@@ -100,7 +100,7 @@ export class AdminRepository {
   public async getFacilities(): Promise<Facility[]> {
     try {
       const rows = await executeQuery<any>(
-        `SELECT id, name, branch_id as branchId, branch_name as branchName, default_price as defaultPrice, capacity, status, created_date as createdDate FROM facilities ORDER BY created_at DESC`
+        `SELECT id, name, branch_id as branchId, branch_name as branchName, default_price as defaultPrice, capacity, status, created_date as createdDate, pricing_basis as pricingBasis FROM facilities ORDER BY created_at DESC`
       );
       return rows.map((r) => ({
         id: r.id,
@@ -111,6 +111,7 @@ export class AdminRepository {
         capacity: r.capacity ? Number(r.capacity) : 0,
         status: (r.status || 'Active') as 'Active' | 'Inactive',
         createdDate: r.createdDate || new Date().toISOString().split('T')[0],
+        pricingBasis: (r.pricingBasis === 'Per Hour' ? 'Per Hour' : 'Per Day') as 'Per Hour' | 'Per Day',
       }));
     } catch (err) {
       console.error('Error fetching facilities:', err);
@@ -126,11 +127,12 @@ export class AdminRepository {
     return Number(r[0]?.cnt || 0);
   }
 
-  public async createFacility(data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status?: 'Active' | 'Inactive' }, actor = 'System'): Promise<Facility> {
+  public async createFacility(data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status?: 'Active' | 'Inactive'; pricingBasis?: 'Per Hour' | 'Per Day' }, actor = 'System'): Promise<Facility> {
     const name = cleanText(data?.name, { label: 'Facility name', min: 2, max: 100, required: true })!;
     const status = cleanStatus(data?.status) ?? 'Active';
     const defaultPrice = cleanNonNegativeNumber(data?.defaultPrice, 'Default price', { max: 1e9 }) ?? 0;
     const capacity = cleanNonNegativeNumber(data?.capacity, 'Capacity', { integer: true, max: 100000 }) ?? 0;
+    const pricingBasis = data?.pricingBasis === 'Per Hour' ? 'Per Hour' : 'Per Day';
     const branch = typeof data?.branchId === 'string' ? await this.getBranchById(data.branchId) : undefined;
     if (!branch) throw badRequest('Select a valid branch for this facility.');
     if (branch.status !== 'Active') throw badRequest('Facilities can only be added to an active branch.');
@@ -140,11 +142,11 @@ export class AdminRepository {
 
     const id = await insertWithGeneratedId('FAC', 'facilities', async (newId) => {
       await executeQuery(
-        `INSERT INTO facilities (id, name, branch_id, branch_name, default_price, capacity, status, created_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [newId, name, branch.id, branch.name, defaultPrice, capacity, status, createdDate]
+        `INSERT INTO facilities (id, name, branch_id, branch_name, default_price, capacity, status, created_date, pricing_basis) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [newId, name, branch.id, branch.name, defaultPrice, capacity, status, createdDate, pricingBasis]
       );
     });
-    const created: Facility = { id, name, branchId: branch.id, branchName: branch.name, defaultPrice, capacity, status, createdDate };
+    const created: Facility = { id, name, branchId: branch.id, branchName: branch.name, defaultPrice, capacity, status, createdDate, pricingBasis };
     auditRepository.logAction({ user: actor, action: 'CREATE_FACILITY', entity: 'facilities', entityId: id, newValue: created });
     return created;
   }
@@ -158,6 +160,7 @@ export class AdminRepository {
     const status = cleanStatus(updates?.status);
     const defaultPrice = cleanNonNegativeNumber(updates?.defaultPrice, 'Default price', { max: 1e9 });
     const capacity = cleanNonNegativeNumber(updates?.capacity, 'Capacity', { integer: true, max: 100000 });
+    const pricingBasis = updates?.pricingBasis ? (updates.pricingBasis === 'Per Hour' ? 'Per Hour' : 'Per Day') : (current.pricingBasis || 'Per Day');
 
     let targetBranch = { id: current.branchId, name: current.branchName };
     if (updates?.branchId && updates.branchId !== current.branchId) {
@@ -177,8 +180,8 @@ export class AdminRepository {
 
     await executeTransaction(async (conn) => {
       await conn.execute(
-        `UPDATE facilities SET name = ?, branch_id = ?, branch_name = ?, default_price = ?, capacity = ?, status = ? WHERE id = ?`,
-        [finalName, targetBranch.id, targetBranch.name, defaultPrice ?? current.defaultPrice ?? 0, capacity ?? current.capacity ?? 0, status ?? current.status, id]
+        `UPDATE facilities SET name = ?, branch_id = ?, branch_name = ?, default_price = ?, capacity = ?, status = ?, pricing_basis = ? WHERE id = ?`,
+        [finalName, targetBranch.id, targetBranch.name, defaultPrice ?? current.defaultPrice ?? 0, capacity ?? current.capacity ?? 0, status ?? current.status, pricingBasis, id]
       );
       // Bookings reference the facility by name: carry a rename along so history stays attached.
       if (finalName !== current.name) {

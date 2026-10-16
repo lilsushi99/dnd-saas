@@ -35,7 +35,7 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
   const [categories, setCategories] = useState<ExpenseCategoryData[]>([]);
   const [totalExpense, setTotalExpense] = useState<number>(0);
 
-  useEffect(() => {
+  const loadData = () => {
     let period: string = 'all';
     if (selectedRange === 'last_7' || selectedRange === '7D') period = 'last_7_days';
     else if (selectedRange === 'last_30' || selectedRange === '30D') period = 'last_30_days';
@@ -55,9 +55,9 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
         setTotalExpense(data.totalExpenses || 0);
         if (data.expenseCategoryBreakdown && data.expenseCategoryBreakdown.length > 0) {
           const mapped = data.expenseCategoryBreakdown.map((item, idx) => ({
-            name: item.category,
+            name: item.category || 'Uncategorized',
             value: item.amount,
-            color: PALETTE[idx % PALETTE.length],
+            color: item.color || PALETTE[idx % PALETTE.length],
           }));
           setCategories(mapped);
         } else {
@@ -69,6 +69,17 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
         setCategories([]);
         setTotalExpense(0);
       });
+  };
+
+  useEffect(() => {
+    loadData();
+
+    const handleRefresh = () => {
+      loadData();
+    };
+
+    window.addEventListener('nexus:refresh-financials', handleRefresh);
+    return () => window.removeEventListener('nexus:refresh-financials', handleRefresh);
   }, [selectedBranch, selectedRange, filters?.startDate, filters?.endDate]);
 
   return (

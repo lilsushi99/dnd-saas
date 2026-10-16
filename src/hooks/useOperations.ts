@@ -91,8 +91,18 @@ export function useOperations(branchFilter: string = 'all') {
     }
   };
 
-  const exportData = (type: 'csv' | 'excel', target: 'bookings' | 'facilities') => {
+  const exportData = async (type: 'csv' | 'excel', target: 'bookings' | 'facilities') => {
     if (target === 'bookings') {
+      if (type === 'excel') {
+        const { exportDailyLoggerToExcel } = await import('../utils/excelExportUtils');
+        await exportDailyLoggerToExcel(bookings, {
+          branchLabel: branchSelect === 'all' ? 'All Branches' : branchSelect,
+          dateLabel: monthFilter === 'all' ? 'All Time' : monthFilter,
+          currencySymbol: '₦',
+        });
+        return;
+      }
+
       const headers = [
         'Booking ID',
         'Date',
@@ -100,76 +110,88 @@ export function useOperations(branchFilter: string = 'all') {
         'Client ID',
         'Branch',
         'Facility',
-        'Amount ($)',
+        'Amount (₦)',
         'Payment Method',
         'Days Used',
         'Days Left',
         'Status',
       ];
       const rows = bookings.map((b) => [
-        b.id,
-        b.date,
-        `"${b.clientName}"`,
-        b.clientId,
-        `"${b.branch}"`,
-        `"${b.facility}"`,
+        `"${b.id}"`,
+        `"${b.date}"`,
+        `"${(b.clientName || '').replace(/"/g, '""')}"`,
+        `"${b.clientId}"`,
+        `"${(b.branch || '').replace(/"/g, '""')}"`,
+        `"${(b.facility || '').replace(/"/g, '""')}"`,
         b.amount,
-        b.paymentMethod,
-        b.daysUsed,
-        b.daysLeft,
-        b.status,
+        `"${b.paymentMethod || 'Cash'}"`,
+        b.daysUsed ?? 0,
+        b.daysLeft ?? 0,
+        `"${b.status || 'Active'}"`,
       ]);
 
-      const csvContent =
-        'data:text/csv;charset=utf-8,' +
-        [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
+      const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
+      link.setAttribute('href', url);
       link.setAttribute(
         'download',
-        `Daily_Logger_Bookings_${new Date().toISOString().slice(0, 10)}.${
-          type === 'excel' ? 'xls' : 'csv'
-        }`
+        `Daily_Logger_Bookings_${new Date().toISOString().slice(0, 10)}.csv`
       );
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } else {
+      if (type === 'excel') {
+        const { exportFacilityRecordsToExcel } = await import('../utils/excelExportUtils');
+        let dateLabel = 'This Month';
+        if (dateFilter === 'last_7_days' || dateFilter === 'last_7') dateLabel = 'Last 7 Days';
+        else if (dateFilter === 'last_30_days' || dateFilter === 'last_30') dateLabel = 'Last 30 Days';
+        else if (dateFilter === 'all') dateLabel = 'All Time';
+        else if (dateFilter === 'custom') dateLabel = `Custom (${startDate} to ${endDate})`;
+
+        await exportFacilityRecordsToExcel(facilityRecords, {
+          branchLabel: branchSelect === 'all' ? 'All Branches' : branchSelect,
+          dateLabel,
+          currencySymbol: '₦',
+        });
+        return;
+      }
+
       const headers = [
         'Facility Name',
-        'Bookings Count',
-        'Total Revenue ($)',
-        'Branch',
-        'Average Spend ($)',
+        'Total Bookings',
+        'Total Revenue (₦)',
+        'Branch Location',
+        'Average Spend (₦)',
         'Occupancy Rate (%)',
         'Status',
       ];
       const rows = facilityRecords.map((f) => [
-        `"${f.facility}"`,
+        `"${(f.facility || '').replace(/"/g, '""')}"`,
         f.bookings,
         f.revenue,
-        `"${f.branch}"`,
+        `"${(f.branch || '').replace(/"/g, '""')}"`,
         f.averageRevenue,
         `${f.occupancy}%`,
-        f.status,
+        `"${f.status || 'Operational'}"`,
       ]);
 
-      const csvContent =
-        'data:text/csv;charset=utf-8,' +
-        [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
+      const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
+      link.setAttribute('href', url);
       link.setAttribute(
         'download',
-        `Facility_Records_Report_${new Date().toISOString().slice(0, 10)}.${
-          type === 'excel' ? 'xls' : 'csv'
-        }`
+        `Facility_Records_Report_${new Date().toISOString().slice(0, 10)}.csv`
       );
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
   };
 

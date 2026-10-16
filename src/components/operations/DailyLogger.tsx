@@ -39,29 +39,30 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({ branchFilter = 'all' }
   const monthRef = useRef<HTMLDivElement>(null);
   const branchRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const loadBranches = () => {
     AdminApiService.fetchBranches()
       .then((bList) => setDbBranches(bList))
       .catch((err) => console.error('Error loading branches in DailyLogger:', err));
+  };
+
+  useEffect(() => {
+    loadBranches();
+
+    const handleRefresh = () => {
+      loadBranches();
+    };
+
+    window.addEventListener('nexus:refresh-branches', handleRefresh);
+    return () => window.removeEventListener('nexus:refresh-branches', handleRefresh);
   }, []);
 
-  // Close menus on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (monthRef.current && !monthRef.current.contains(e.target as Node)) {
-        setShowMonthMenu(false);
-      }
-      if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
-        setShowBranchMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const activeBranches = dbBranches.filter((b) => b.status === 'Active');
+  const inactiveBranches = dbBranches.filter((b) => b.status === 'Inactive');
 
   const branches = [
-    { id: 'all', label: 'All Branches' },
-    ...dbBranches.map((b) => ({ id: b.name, label: b.name })),
+    { id: 'all', label: 'All Branches', isInactive: false },
+    ...activeBranches.map((b) => ({ id: b.name, label: b.name, isInactive: false })),
+    ...inactiveBranches.map((b) => ({ id: b.name, label: `${b.name} (Inactive)`, isInactive: true })),
   ];
 
   const now = new Date();
@@ -307,10 +308,17 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({ branchFilter = 'all' }
                       className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
                         branchSelect === b.id
                           ? 'bg-blue-50 text-blue-700 font-medium'
+                          : b.isInactive
+                          ? 'hover:bg-gray-50 text-gray-500 italic'
                           : 'hover:bg-gray-50 text-gray-700'
                       }`}
                     >
-                      <span>{b.label}</span>
+                      <span className="flex items-center gap-1.5">
+                        {b.label}
+                        {b.isInactive && (
+                          <i className="fa-solid fa-ban text-[10px] text-gray-400 not-italic"></i>
+                        )}
+                      </span>
                       {branchSelect === b.id && (
                         <i className="fa-solid fa-check text-[10px] text-blue-600"></i>
                       )}

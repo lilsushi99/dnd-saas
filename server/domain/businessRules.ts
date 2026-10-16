@@ -228,11 +228,21 @@ export function profitMargin(revenueCents: number, netProfitCents: number): numb
 
 // ---------------------------------------------------------------- occupancy
 export function bookingOccupiesOn(
-  booking: { date: string; daysCount?: number | null; status?: string | null },
+  booking: {
+    date: string;
+    daysCount?: number | null;
+    status?: string | null;
+    durationUnit?: string | null;
+    pricingBasis?: string | null;
+  },
   refDate: string
 ): boolean {
   if (!isQualifyingBooking(booking.status)) return false;
   const start = String(booking.date).substring(0, 10);
+  if (booking.durationUnit === 'Hour' || booking.pricingBasis === 'Per Hour') {
+    // Hourly bookings occupy only on the specific single calendar date
+    return refDate === start;
+  }
   const days = Math.max(1, Number(booking.daysCount) || 1);
   const end = addDays(start, days - 1);
   return refDate >= start && refDate <= end;
@@ -248,4 +258,137 @@ export function occupancyStatus(percent: number): OccupancyStatus {
   if (percent >= FULL_THRESHOLD) return 'Full';
   if (percent >= NEARLY_FULL_THRESHOLD) return 'Nearly Full';
   return 'Available';
+}
+
+// ---------------------------------------------------------------- booking lifecycle
+export interface BookingLifecycleResult {
+  status: 'Active' | 'Expired' | 'Upcoming' | 'Cancelled' | 'Expiring Soon';
+  daysLeft: number;
+  daysUsed: number;
+  durationCount: number;
+  durationUnit: 'Hour' | 'Day';
+  startDateTime: string;
+  endDateTime: string;
+}
+
+export function parseBookingStartTime(timeStr?: string | null, defaultTime = '09:00:00'): string {
+  if (!timeStr) return defaultTime;
+  const s = timeStr.trim();
+  const match24 = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (match24) {
+    const h = String(parseInt(match24[1], 10)).padStart(2, '0');
+    const m = match24[2];
+    const sec = match24[3] || '00';
+    return `${h}:${m}:${sec}`;
+  }
+  const match12 = s.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (match12) {
+    let hours = parseInt(match12[1], 10);
+    const minutes = match12[2];
+    const meridian = match12[3].toUpperCase();
+    if (meridian === 'PM' && hours < 12) hours += 12;
+    if (meridian === 'AM' && hours === 12) hours = 0;
+    return `${String(hours).padStart(2, '0')}:${minutes}:00`;
+  }
+  return defaultTime;
+}
+
+export function calculateBookingLifecycle(
+  booking: {
+    date: string;
+    startTime?: string | null;
+    timeDuration?: string | null;
+    createdAt?: string | null;
+    daysCount?: number | null;
+    durationCount?: number | null;
+    durationUnit?: 'Hour' | 'Day' | string | null;
+    pricingBasis?: 'Per Hour' | 'Per Day' | string | null;
+    status?: string | null;
+  },
+  nowMs: number = Date.now(),
+  _timezone: string = 'UTC+01:00'
+): BookingLifecycleResult {
+  const currentStatus = String(booking.status || '').trim();
+  const durationCount = Math.max(1, Number(booking.durationCount || booking.daysCount) || 1);
+  const durationUnit: 'Hour' | 'Day' =
+    booking.durationUnit === 'Hour' ||
+    booking.pricingBasis === 'Per Hour' ||
+    (typeof booking.timeDuration === 'string' && /hour/i.test(booking.timeDuration))
+      ? 'Hour'
+      : 'Day';
+
+  const startTime = parseBookingStartTime(booking.startTime || booking.timeDuration, '09:00:00');
+  const dateIso = String(booking.date).substring(0, 10);
+
+  // Business timezone is UTC+01:00
+  const startIso = `${dateIso}T${startTime}+01:00`;
+  let startMs = new Date(startIso).getTime();
+  if (isNaN(startMs)) {
+    startMs = new Date(`${dateIso}T09:00:00+01:00`).getTime();
+  }
+
+  const durationMs =
+    durationUnit === 'Hour'
+      ? durationCount * 3600 * 1000
+      : durationCount * 24 * 3600 * 1000;
+
+  const endMs = startMs + durationMs;
+  const endIso = new Date(endMs).toISOString();
+
+  if (currentStatus === 'Cancelled') {
+    return {
+      status: 'Cancelled',
+      daysLeft: 0,
+      daysUsed: durationCount,
+      durationCount,
+      durationUnit,
+      startDateTime: startIso,
+      endDateTime: endIso,
+    };
+  }
+
+  let status: 'Active' | 'Expired' | 'Upcoming' | 'Cancelled' | 'Expiring Soon';
+  let daysLeft = 0;
+  let daysUsed = 0;
+
+  if (nowMs < startMs) {
+    status = 'Upcoming';
+    daysLeft = durationCount;
+    daysUsed = 0;
+  } else if (nowMs >= endMs) {
+    status = 'Expired';
+    daysLeft = 0;
+    daysUsed = durationCount;
+  } else {
+    // Within paid duration
+    const remainingMs = endMs - nowMs;
+    const elapsedMs = nowMs - startMs;
+
+    if (durationUnit === 'Hour') {
+      status = 'Active';
+      daysLeft = Math.max(1, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+      daysUsed = Math.min(durationCount, Math.max(1, Math.floor(elapsedMs / (3600 * 1000)) + 1));
+    } else {
+      // Day-based
+      daysLeft = Math.max(1, Math.ceil(remainingMs / (24 * 3600 * 1000)));
+      daysUsed = Math.min(durationCount, Math.max(1, Math.floor(elapsedMs / (24 * 3600 * 1000)) + 1));
+
+      // Show Expiring Soon during the final 72 hours before expiration (for bookings lasting >= 3 days)
+      if (durationCount >= 3 && remainingMs <= 72 * 3600 * 1000) {
+        status = 'Expiring Soon';
+      } else {
+        status = 'Active';
+      }
+    }
+  }
+
+  return {
+    status,
+    daysLeft,
+    daysUsed,
+    durationCount,
+    durationUnit,
+    startDateTime: startIso,
+    endDateTime: endIso,
+  };
 }

@@ -96,11 +96,16 @@ export interface Booking {
   daysCount: number;
   timeDuration: string;
   amount: number;
-  paymentMethod: 'Credit Card' | 'Wire Transfer' | 'Cash' | 'Corporate Billing';
+  paymentMethod: 'Transfer' | 'Cash' | 'Credit Card' | 'Wire Transfer' | 'Corporate Billing' | 'POS Terminal' | string;
   daysUsed: number;
   daysLeft: number;
-  status: 'Active' | 'Expired' | 'Upcoming' | 'Cancelled';
+  status: 'Active' | 'Expired' | 'Upcoming' | 'Cancelled' | 'Expiring Soon';
   createdAt?: string;
+  pricingBasis?: 'Per Hour' | 'Per Day';
+  durationUnit?: 'Hour' | 'Day';
+  durationCount?: number;
+  startTime?: string;
+  endTime?: string;
 }
 
 export interface DailyLoggerSummary {
@@ -326,6 +331,7 @@ export interface Facility {
   capacity: number;
   status: 'Active' | 'Inactive';
   createdDate: string;
+  pricingBasis?: 'Per Hour' | 'Per Day';
 }
 
 export interface AdminUser {

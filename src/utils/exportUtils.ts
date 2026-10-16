@@ -350,16 +350,21 @@ export interface ExportFinancePDFParams {
   };
   businessName?: string;
   logoUrl?: string;
+  narrative?: string;
+  isAiGenerated?: boolean;
 }
 
 export const exportFinanceReportToPDF = ({
   periodLabel,
   branchName,
   analytics,
-  businessName = 'Enterprise ERP',
+  businessName = 'Nexus Enterprise ERP',
+  narrative,
+  isAiGenerated = false,
 }: ExportFinancePDFParams) => {
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 14;
 
   const primaryColor = [30, 41, 59]; // slate-800
@@ -377,14 +382,14 @@ export const exportFinanceReportToPDF = ({
   doc.setTextColor(255, 255, 255);
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text('H', margin + 4.2, 14.5);
+  doc.text('N', margin + 4.2, 14.5);
 
   doc.setFontSize(13);
   doc.text(businessName.toUpperCase(), margin + 16, 12.5);
   doc.setFontSize(8);
   doc.setFont('Helvetica', 'normal');
   doc.setTextColor(203, 213, 225);
-  doc.text('Executive Financial & Operational Analytics Report', margin + 16, 18);
+  doc.text('Executive Financial & Operational Analytics Audit Report', margin + 16, 18);
 
   // Date Tag on Right Header
   doc.setFontSize(8);
@@ -420,7 +425,7 @@ export const exportFinanceReportToPDF = ({
 
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
-  doc.text('Confidential Executive Document • Internal Audit Use Only', margin + 4, yPos + 12);
+  doc.text('Confidential Executive Document • Internal Audit & Regulatory Compliance', margin + 4, yPos + 12);
 
   yPos += 22;
 
@@ -435,12 +440,12 @@ export const exportFinanceReportToPDF = ({
   const kpiHeight = 16;
 
   const kpisList = [
-    { label: 'Total Revenue', value: `₦${analytics.totalRevenue.toLocaleString()}`, color: [37, 99, 235] },
-    { label: 'Total Expenses', value: `₦${analytics.totalExpenses.toLocaleString()}`, color: [225, 29, 72] },
-    { label: 'Net Profit', value: `₦${analytics.netProfit.toLocaleString()}`, color: [16, 185, 129] },
-    { label: 'Profit Margin', value: `${analytics.netProfitMargin.toFixed(1)}%`, color: [147, 51, 234] },
-    { label: 'Total Bookings', value: `${analytics.totalBookings}`, color: [234, 88, 12] },
-    { label: 'Unique Clients', value: `${analytics.uniqueClients}`, color: [14, 165, 233] },
+    { label: 'Total Revenue', value: `₦${Number(analytics.totalRevenue || 0).toLocaleString()}`, color: [37, 99, 235] },
+    { label: 'Total Expenses', value: `₦${Number(analytics.totalExpenses || 0).toLocaleString()}`, color: [225, 29, 72] },
+    { label: 'Net Profit', value: `₦${Number(analytics.netProfit || 0).toLocaleString()}`, color: [16, 185, 129] },
+    { label: 'Profit Margin', value: `${Number(analytics.netProfitMargin || 0).toFixed(1)}%`, color: [147, 51, 234] },
+    { label: 'Total Bookings', value: `${analytics.totalBookings || 0}`, color: [234, 88, 12] },
+    { label: 'Unique Clients', value: `${analytics.uniqueClients || 0}`, color: [14, 165, 233] },
   ];
 
   kpisList.forEach((item, idx) => {
@@ -470,17 +475,73 @@ export const exportFinanceReportToPDF = ({
 
   yPos += 2 * (kpiHeight + 4) + 6;
 
-  // Section 2: Facility Revenue Breakdown Table
-  if (analytics.facilityRevenueBreakdown && analytics.facilityRevenueBreakdown.length > 0) {
+  // Executive Narrative Analysis Block (Section I)
+  if (narrative) {
+    if (yPos > pageHeight - 65) {
+      doc.addPage();
+      yPos = 20;
+    }
+
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(30, 41, 59);
-    doc.text('2. Facility Revenue Breakdown', margin, yPos);
+    doc.text('2. Executive Narrative Analysis', margin, yPos);
+
+    // Badge
+    const badgeText = isAiGenerated ? 'AI-ASSISTED AUDIT INSIGHTS' : 'DETERMINISTIC EXECUTIVE AUDIT';
+    doc.setFontSize(7);
+    doc.setFont('Helvetica', 'bold');
+    if (isAiGenerated) {
+      doc.setFillColor(238, 242, 255); // indigo-50
+      doc.setTextColor(79, 70, 229); // indigo-600
+    } else {
+      doc.setFillColor(241, 245, 249); // slate-100
+      doc.setTextColor(71, 85, 105); // slate-600
+    }
+    const badgeWidth = doc.getTextWidth(badgeText) + 6;
+    doc.roundedRect(pageWidth - margin - badgeWidth, yPos - 3.5, badgeWidth, 5, 1, 1, 'F');
+    doc.text(badgeText, pageWidth - margin - badgeWidth + 3, yPos);
+
+    yPos += 5;
+
+    const narrativeBoxWidth = pageWidth - margin * 2;
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    const splitNarrative = doc.splitTextToSize(narrative, narrativeBoxWidth - 8);
+    const boxHeight = Math.max(22, splitNarrative.length * 3.8 + 8);
+
+    doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, yPos, narrativeBoxWidth, boxHeight, 2, 2, 'FD');
+
+    // Left accent bar
+    doc.setFillColor(isAiGenerated ? 99 : 71, isAiGenerated ? 102 : 85, isAiGenerated ? 241 : 105);
+    doc.rect(margin, yPos, 1.5, boxHeight, 'F');
+
+    doc.setTextColor(51, 65, 85);
+    doc.text(splitNarrative, margin + 4, yPos + 5.5, { lineHeightFactor: 1.25 });
+
+    yPos += boxHeight + 8;
+  }
+
+  const sectionNum = narrative ? 3 : 2;
+
+  // Section: Facility Revenue Breakdown Table
+  if (analytics.facilityRevenueBreakdown && analytics.facilityRevenueBreakdown.length > 0) {
+    if (yPos > pageHeight - 50) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`${sectionNum}. Facility Revenue Breakdown`, margin, yPos);
     yPos += 3;
 
     const facRows = analytics.facilityRevenueBreakdown.map((f) => [
       f.facility,
-      `₦${f.revenue.toLocaleString()}`,
+      `₦${Number(f.revenue).toLocaleString()}`,
       `${f.percentage}%`,
     ]);
 
@@ -498,17 +559,22 @@ export const exportFinanceReportToPDF = ({
     yPos = (doc as any).lastAutoTable.finalY + 8;
   }
 
-  // Section 3: Expense Category Breakdown Table
+  // Section: Expense Category Breakdown Table
   if (analytics.expenseCategoryBreakdown && analytics.expenseCategoryBreakdown.length > 0) {
+    if (yPos > pageHeight - 50) {
+      doc.addPage();
+      yPos = 20;
+    }
+
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(30, 41, 59);
-    doc.text('3. Expense Category Breakdown', margin, yPos);
+    doc.text(`${sectionNum + 1}. Expense Category Breakdown`, margin, yPos);
     yPos += 3;
 
     const expCatRows = analytics.expenseCategoryBreakdown.map((e) => [
       e.category,
-      `₦${e.amount.toLocaleString()}`,
+      `₦${Number(e.amount).toLocaleString()}`,
       `${e.percentage}%`,
     ]);
 
@@ -526,12 +592,17 @@ export const exportFinanceReportToPDF = ({
     yPos = (doc as any).lastAutoTable.finalY + 8;
   }
 
-  // Section 4: Operational Expense Items Table
+  // Section: Operational Expense Items Table
   if (analytics.expenseItems && analytics.expenseItems.length > 0) {
+    if (yPos > pageHeight - 50) {
+      doc.addPage();
+      yPos = 20;
+    }
+
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(30, 41, 59);
-    doc.text('4. Detailed Expense Items', margin, yPos);
+    doc.text(`${sectionNum + 2}. Detailed Expense Items`, margin, yPos);
     yPos += 3;
 
     const expItemRows = analytics.expenseItems.map((e) => [
@@ -539,7 +610,7 @@ export const exportFinanceReportToPDF = ({
       e.category,
       e.branch,
       e.date,
-      `₦${e.amount.toLocaleString()}`,
+      `₦${Number(e.amount).toLocaleString()}`,
     ]);
 
     autoTable(doc, {
@@ -554,7 +625,7 @@ export const exportFinanceReportToPDF = ({
     });
   }
 
-  // Footer page numbering
+  // Footer page numbering across all pages
   const pageCount = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);

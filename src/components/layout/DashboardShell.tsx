@@ -58,47 +58,26 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
     return 'Dashboard';
   };
 
-  const handleExport = async (format: 'csv' | 'pdf') => {
-    let kpis = {
-      totalRevenue: 0,
-      totalExpenses: 0,
-      netProfit: 0,
-      profitMargin: 0,
-      activeBookings: 0,
-      occupancyRate: 0,
-    };
-
+  const handleExport = async (_format: 'excel' | 'csv' | 'pdf' = 'excel') => {
     try {
-      let period: 'today' | 'last_7_days' | 'this_month' | 'custom' | 'full_year' = 'this_month';
+      let period: any = 'this_month';
       if (filters.dateRange === 'last_7' || filters.dateRange === '7D') period = 'last_7_days';
+      else if (filters.dateRange === 'last_30' || filters.dateRange === '30D') period = 'last_30_days';
       else if (filters.dateRange === 'last_12_months' || filters.dateRange === '12M') period = 'full_year';
+      else if (filters.dateRange === 'all') period = 'all';
+      else if (filters.dateRange === 'custom') period = 'custom';
 
-      const analytics = await FinanceApiService.fetchAnalytics({
+      const exportData = await FinanceApiService.fetchDashboardExportData({
         branch: filters.branch !== 'all' ? filters.branch : undefined,
         period,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
       });
 
-      kpis = {
-        totalRevenue: analytics.totalRevenue || 0,
-        totalExpenses: analytics.totalExpenses || 0,
-        netProfit: analytics.netProfit || 0,
-        profitMargin: analytics.netProfitMargin || 0,
-        activeBookings: analytics.totalBookings || 0,
-        occupancyRate: analytics.totalBookings > 0 ? Math.min(100, Math.round((analytics.totalBookings / 30) * 100)) : 0,
-      };
+      const { exportDashboardToExcel } = await import('../../utils/excelExportUtils');
+      await exportDashboardToExcel(exportData);
     } catch (e) {
-      console.error('Failed to load export metrics from database:', e);
-    }
-
-    const exportData = {
-      filters,
-      kpis,
-    };
-
-    if (format === 'csv') {
-      exportToCSV(exportData);
-    } else {
-      exportToPDF(exportData);
+      console.error('Failed to export dashboard data:', e);
     }
   };
 
@@ -175,7 +154,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                 {/* Row Three: Facility Occupancy Status Widget (Left) + Top Customers Card (Right) */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
                   <div className="lg:col-span-7 h-full">
-                    <FacilityOccupancyStatusCard branchFilter={filters.branch} />
+                    <FacilityOccupancyStatusCard branchFilter={filters.branch} filters={filters} />
                   </div>
                   <div className="lg:col-span-5 h-full">
                     <TopCustomersCard

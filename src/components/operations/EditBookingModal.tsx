@@ -26,10 +26,10 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     facility: '',
     timeDuration: '',
     amount: 0,
-    paymentMethod: 'Wire Transfer' as 'Credit Card' | 'Wire Transfer' | 'Cash' | 'Corporate Billing',
+    paymentMethod: 'Transfer' as any,
     daysCount: 1,
     daysUsed: 1,
-    status: 'Active' as 'Active' | 'Expired' | 'Upcoming' | 'Cancelled',
+    status: 'Active' as 'Active' | 'Expired' | 'Upcoming' | 'Cancelled' | 'Expiring Soon',
   });
 
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -97,21 +97,33 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     label: b.name,
   }));
 
-  const facilityOptions = facilities.map((f) => ({
+  const eligibleFacilities = facilities.filter(
+    (f) =>
+      !formData.branch ||
+      f.branchName.toLowerCase() === formData.branch.toLowerCase() ||
+      (branches.find((b) => b.name.toLowerCase() === formData.branch.toLowerCase())?.id === f.branchId)
+  );
+
+  const facilityOptions = eligibleFacilities.map((f) => ({
     id: f.name,
     label: f.name,
-    subLabel: `Capacity: ${f.capacity} • ₦${f.defaultPrice.toLocaleString()}/day`,
+    subLabel: `Capacity: ${f.capacity} • ₦${Number(f.defaultPrice || 0).toLocaleString()} / ${
+      f.pricingBasis === 'Per Hour' ? 'hr' : 'day'
+    }`,
   }));
 
   const paymentOptions = [
-    { id: 'Wire Transfer', label: 'Wire Transfer' },
-    { id: 'Credit Card', label: 'Credit Card' },
+    { id: 'Transfer', label: 'Transfer' },
     { id: 'Cash', label: 'Cash' },
-    { id: 'Corporate Billing', label: 'Corporate Billing' },
+    // If legacy payment method exists, preserve it in dropdown
+    ...(formData.paymentMethod && !['Transfer', 'Cash'].includes(formData.paymentMethod)
+      ? [{ id: formData.paymentMethod, label: `${formData.paymentMethod} (Legacy)` }]
+      : []),
   ];
 
   const statusOptions = [
     { id: 'Active', label: 'Active' },
+    { id: 'Expiring Soon', label: 'Expiring Soon' },
     { id: 'Upcoming', label: 'Upcoming' },
     { id: 'Expired', label: 'Expired' },
     { id: 'Cancelled', label: 'Cancelled' },

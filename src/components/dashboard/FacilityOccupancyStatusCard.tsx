@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { AdminApiService } from '../../services/adminService';
 import { OperationsApiService } from '../../services/operationsService';
+import { DashboardFilters, Branch } from '../../types';
 
 interface FacilityOccupancyStatusCardProps {
   branchFilter?: string;
+  filters?: DashboardFilters;
 }
 
 interface FacilityOccupancyItem {
   id: string;
   name: string;
+  branchId: string;
   branchName: string;
   occupied: number;
   capacity: number;
@@ -16,104 +19,145 @@ interface FacilityOccupancyItem {
 
 export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardProps> = ({
   branchFilter = 'all',
+  filters,
 }) => {
   const [activeBranchTab, setActiveBranchTab] = useState<string>('all');
   const [facilities, setFacilities] = useState<FacilityOccupancyItem[]>([]);
+  const [dbBranches, setDbBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const selectedBranch =
+    filters?.branch && filters.branch !== 'all'
+      ? filters.branch
+      : branchFilter !== 'all'
+      ? branchFilter
+      : activeBranchTab;
+
+  const loadOccupancyData = () => {
+    setLoading(true);
     Promise.all([
       AdminApiService.fetchFacilities(),
       OperationsApiService.fetchBookings(),
       AdminApiService.fetchBranches(),
     ])
-      .then(([dbFacs, bookingsData]) => {
+      .then(([dbFacs, bookingsData, branchesData]) => {
+        setDbBranches(branchesData || []);
         const bookingsList = bookingsData.bookings || [];
-        const facilityMap = new Map<string, FacilityOccupancyItem>();
 
-        dbFacs.forEach((f) => {
-          const key = `${f.name.toLowerCase()}_${(f.branchName || '').toLowerCase()}`;
-          facilityMap.set(key, {
-            id: f.id,
-            name: f.name,
-            branchName: f.branchName || 'Primary Hub',
-            occupied: 0,
-            capacity: f.capacity || 10,
+        // Determine reference date: use end date of selected period or today
+        const todayStr = new Date().toISOString().substring(0, 10);
+        let refDate = todayStr;
+        if (filters?.dateRange === 'custom' && filters.endDate) {
+          refDate = filters.endDate < todayStr ? filters.endDate : todayStr;
+        }
+
+        // Map facilities
+        const items: FacilityOccupancyItem[] = dbFacs
+          .filter((f) => f.status === 'Active')
+          .map((f) => {
+            const fNameNorm = f.name.trim().toLowerCase();
+            const fBranchIdNorm = (f.branchId || '').trim().toLowerCase();
+            const fBranchNameNorm = (f.branchName || '').trim().toLowerCase();
+
+            // Count qualifying bookings that occupy on refDate
+            const occupyingBookings = bookingsList.filter((b) => {
+              if (b.status === 'Cancelled') return false;
+
+              // Check date interval occupation
+              const bDateStr = String(b.date).substring(0, 10);
+              const isHourly = b.durationUnit === 'Hour' || f.pricingBasis === 'Per Hour';
+              let occupies = false;
+              if (isHourly) {
+                occupies = bDateStr === refDate;
+              } else {
+                const days = Math.max(1, Number(b.daysCount) || 1);
+                const bStartDate = new Date(bDateStr + 'T00:00:00Z');
+                const bEndDate = new Date(bStartDate.getTime() + (days - 1) * 86400000);
+                const bEndStr = bEndDate.toISOString().substring(0, 10);
+                occupies = refDate >= bDateStr && refDate <= bEndStr;
+              }
+
+              if (!occupies) return false;
+
+              const bFacNorm = (b.facility || '').trim().toLowerCase();
+              const bBranchNorm = (b.branch || '').trim().toLowerCase();
+
+              const facMatch = bFacNorm === fNameNorm;
+              const branchMatch =
+                !bBranchNorm ||
+                !fBranchNameNorm ||
+                bBranchNorm === fBranchNameNorm ||
+                bBranchNorm === fBranchIdNorm;
+
+              return facMatch && branchMatch;
+            });
+
+            const facilityCapacity = Math.max(1, Number(f.capacity) || 1);
+            // Cap occupied count at permitted capacity to avoid exceeding 100% per unit
+            const occupiedCount = Math.min(occupyingBookings.length, facilityCapacity);
+
+            return {
+              id: f.id,
+              name: f.name,
+              branchId: f.branchId,
+              branchName: f.branchName || 'Main Branch',
+              occupied: occupiedCount,
+              capacity: facilityCapacity,
+            };
           });
-        });
-
-        bookingsList.forEach((b) => {
-          if (!b.facility) return;
-          const key = `${b.facility.toLowerCase()}_${(b.branch || '').toLowerCase()}`;
-          if (!facilityMap.has(key)) {
-            const existingKey = Array.from(facilityMap.keys()).find(
-              (k) => k.startsWith(b.facility.toLowerCase()) || b.facility.toLowerCase().startsWith(k.split('_')[0])
-            );
-            if (!existingKey) {
-              facilityMap.set(key, {
-                id: `FAC-GEN-${b.id}`,
-                name: b.facility,
-                branchName: b.branch || 'Global Hub',
-                occupied: 0,
-                capacity: 10,
-              });
-            }
-          }
-        });
-
-        const items = Array.from(facilityMap.values()).map((item) => {
-          const itemKeyNorm = item.name.toLowerCase();
-          const itemBranchNorm = item.branchName.toLowerCase();
-
-          const activeBookings = bookingsList.filter((b) => {
-            if (b.status !== 'Active') return false;
-            const bFacNorm = (b.facility || '').toLowerCase();
-            const bBranchNorm = (b.branch || '').toLowerCase();
-
-            const isFacMatch =
-              bFacNorm === itemKeyNorm ||
-              bFacNorm.includes(itemKeyNorm) ||
-              itemKeyNorm.includes(bFacNorm);
-
-            const isBranchMatch =
-              !bBranchNorm ||
-              !itemBranchNorm ||
-              bBranchNorm === itemBranchNorm ||
-              bBranchNorm.includes(itemBranchNorm) ||
-              itemBranchNorm.includes(bBranchNorm);
-
-            return isFacMatch && isBranchMatch;
-          });
-
-          return {
-            ...item,
-            occupied: activeBookings.length,
-          };
-        });
 
         setFacilities(items);
       })
-      .catch((err) => console.error('Error fetching occupancy data:', err));
-  }, []);
+      .catch((err) => console.error('Error fetching occupancy data:', err))
+      .finally(() => setLoading(false));
+  };
 
-  const selectedBranch = branchFilter !== 'all' ? branchFilter : activeBranchTab;
+  useEffect(() => {
+    loadOccupancyData();
+
+    const handleRefresh = () => {
+      loadOccupancyData();
+    };
+
+    window.addEventListener('nexus:refresh-financials', handleRefresh);
+    window.addEventListener('nexus:refresh-branches', handleRefresh);
+    return () => {
+      window.removeEventListener('nexus:refresh-financials', handleRefresh);
+      window.removeEventListener('nexus:refresh-branches', handleRefresh);
+    };
+  }, [selectedBranch, filters?.dateRange, filters?.startDate, filters?.endDate, branchFilter]);
+
+  // Resolve selected branch against registered branches
+  let targetBranchId: string | null = null;
+  let targetBranchName: string | null = null;
+
+  if (selectedBranch && selectedBranch !== 'all') {
+    const selLower = selectedBranch.trim().toLowerCase();
+    const matched = dbBranches.find(
+      (b) => b.id.toLowerCase() === selLower || b.name.toLowerCase() === selLower
+    );
+    if (matched) {
+      targetBranchId = matched.id.toLowerCase();
+      targetBranchName = matched.name.toLowerCase();
+    } else {
+      targetBranchName = selLower;
+    }
+  }
 
   const filteredFacilities = facilities.filter((f) => {
-    if (selectedBranch === 'all') return true;
-    const sel = selectedBranch.toLowerCase();
-    const fBranch = f.branchName.toLowerCase();
-    return (
-      fBranch.includes(sel) ||
-      sel.includes(fBranch) ||
-      (sel === 'br-001' && fBranch.includes('lekki')) ||
-      (sel === 'br-002' && fBranch.includes('victoria')) ||
-      (sel === 'br-003' && fBranch.includes('london')) ||
-      (sel === 'br-004' && fBranch.includes('new york'))
-    );
+    if (!targetBranchId && !targetBranchName) return true;
+    const fId = (f.branchId || '').toLowerCase();
+    const fName = (f.branchName || '').toLowerCase();
+
+    if (targetBranchId && fId === targetBranchId) return true;
+    if (targetBranchName && fName === targetBranchName) return true;
+    return false;
   });
 
   const totalOccupied = filteredFacilities.reduce((sum, item) => sum + item.occupied, 0);
   const totalCapacity = filteredFacilities.reduce((sum, item) => sum + item.capacity, 0);
-  const overallOccupancyPct = totalCapacity > 0 ? Math.round((totalOccupied / totalCapacity) * 100) : 0;
+  const hasCapacity = totalCapacity > 0 && filteredFacilities.length > 0;
+  const overallOccupancyPct = hasCapacity ? Math.min(100, Math.round((totalOccupied / totalCapacity) * 100)) : 0;
 
   const getStatusBadge = (percent: number) => {
     if (percent >= 100) {
@@ -147,8 +191,8 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
           Occupancy Status
         </h3>
 
-        {/* Hub selector */}
-        {branchFilter === 'all' && branchList.length > 0 && (
+        {/* Hub selector when global filter is 'all' */}
+        {(!filters?.branch || filters.branch === 'all') && branchFilter === 'all' && branchList.length > 0 && (
           <div className="inline-flex items-center p-1 bg-gray-100 rounded-xl text-xs font-normal self-start sm:self-auto overflow-x-auto max-w-full">
             <button
               type="button"
@@ -179,13 +223,13 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
         )}
       </div>
 
-      {/* Simpler Capacity Indicator */}
+      {/* Capacity Indicator */}
       <div className="flex items-baseline justify-between mb-4">
         <span className="font-heading text-xl sm:text-2xl font-medium text-gray-900 tracking-tight">
-          {overallOccupancyPct}% Occupied
+          {hasCapacity ? `${overallOccupancyPct}% Occupied` : 'No Capacity Data'}
         </span>
         <span className="text-xs font-normal text-gray-500">
-          {totalOccupied}/{totalCapacity} capacity
+          {hasCapacity ? `${totalOccupied}/${totalCapacity} capacity` : '0/0 capacity'}
         </span>
       </div>
 
@@ -194,7 +238,7 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
         {filteredFacilities.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
             <i className="fa-solid fa-building text-base mb-1"></i>
-            <p className="text-xs font-normal">No facilities registered</p>
+            <p className="text-xs font-normal">No facilities registered for this branch</p>
           </div>
         ) : (
           filteredFacilities.map((facility) => {

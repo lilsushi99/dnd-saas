@@ -71,6 +71,36 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    id: '003_repair_booking_and_facility_pricing',
+    description: 'Adds facilities.pricing_basis, bookings.duration_unit, start_time/end_time, relaxes phone constraints, updates payment_method and status',
+    async up(c) {
+      if (await tableExists(c, 'facilities')) {
+        await addColumnIfMissing(c, 'facilities', 'pricing_basis', "VARCHAR(20) NOT NULL DEFAULT 'Per Day'");
+        await c.query(`UPDATE facilities SET pricing_basis = 'Per Day' WHERE pricing_basis IS NULL OR pricing_basis = ''`);
+      }
+      if (await tableExists(c, 'bookings')) {
+        await addColumnIfMissing(c, 'bookings', 'duration_unit', "VARCHAR(20) NOT NULL DEFAULT 'Day'");
+        await addColumnIfMissing(c, 'bookings', 'start_time', "TIME DEFAULT '09:00:00'");
+        await addColumnIfMissing(c, 'bookings', 'end_time', "TIME DEFAULT '17:00:00'");
+        try {
+          await c.query(`ALTER TABLE bookings MODIFY COLUMN phone VARCHAR(50) DEFAULT ''`);
+        } catch {}
+        try {
+          await c.query(`ALTER TABLE bookings MODIFY COLUMN payment_method VARCHAR(50) NOT NULL DEFAULT 'Transfer'`);
+        } catch {}
+        try {
+          await c.query(`ALTER TABLE bookings MODIFY COLUMN status VARCHAR(30) NOT NULL DEFAULT 'Active'`);
+        } catch {}
+        await c.query(`UPDATE bookings SET duration_unit = 'Day' WHERE duration_unit IS NULL OR duration_unit = ''`);
+      }
+      if (await tableExists(c, 'clients')) {
+        try {
+          await c.query(`ALTER TABLE clients MODIFY COLUMN phone VARCHAR(50) DEFAULT ''`);
+        } catch {}
+      }
+    },
+  },
 ];
 
 export async function runMigrations(c: Conn): Promise<string[]> {

@@ -249,7 +249,15 @@ export class ExpenseRepository {
     const all = await this.getAllExpenses();
     const count = all.length + 1;
     const year = new Date().getFullYear();
-    const newId = `EXP-IPHIN-${year}-${count}`;
+    if (data.branch && !['both branches', 'all branches'].includes(data.branch.trim().toLowerCase())) {
+      const branchRows = await executeQuery<any>(
+        `SELECT id, name, status FROM branches WHERE LOWER(id) = LOWER(?) OR LOWER(name) = LOWER(?) LIMIT 1`,
+        [data.branch, data.branch]
+      );
+      if (branchRows.length > 0 && branchRows[0].status === 'Inactive') {
+        throw new Error(`Cannot create expense for deactivated branch "${branchRows[0].name}".`);
+      }
+    }
 
     const newExpense: Expense = {
       id: newId,

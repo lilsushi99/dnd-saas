@@ -49,25 +49,11 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
     }
   }, [branchFilter]);
 
-  useEffect(() => {
-    if (filters?.dateRange === 'last_7' || filters?.dateRange === '7D') {
-      setTimeframe('7D');
-    } else if (filters?.dateRange === 'last_12_months' || filters?.dateRange === '12M') {
-      setTimeframe('12M');
-    } else if (filters?.dateRange === 'last_30' || filters?.dateRange === 'this_month') {
-      setTimeframe('30D');
-    }
-  }, [filters?.dateRange]);
-
-  useEffect(() => {
-    let period: string = 'all';
+  const loadChartData = () => {
+    let period = 'last_30_days';
     if (timeframe === '7D') period = 'last_7_days';
     else if (timeframe === '30D') period = 'last_30_days';
-    else if (timeframe === '12M') period = 'all';
-
-    if (filters?.dateRange === 'all') period = 'all';
-    else if (filters?.dateRange === 'this_month') period = 'this_month';
-    else if (filters?.dateRange === 'custom') period = 'custom';
+    else if (timeframe === '12M') period = 'full_year';
 
     const branch =
       selectedBranchTab !== 'compare' && selectedBranchTab !== 'all'
@@ -77,8 +63,6 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
     FinanceApiService.fetchAnalytics({
       period: period as any,
       branch,
-      startDate: filters?.startDate,
-      endDate: filters?.endDate,
     })
       .then((data) => {
         setTotalRevenue(data.totalRevenue || 0);
@@ -103,7 +87,18 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
         setTotalRevenue(0);
         setTotalExpenses(0);
       });
-  }, [timeframe, selectedBranchTab, filters?.dateRange, filters?.startDate, filters?.endDate]);
+  };
+
+  useEffect(() => {
+    loadChartData();
+
+    const handleRefresh = () => {
+      loadChartData();
+    };
+
+    window.addEventListener('nexus:refresh-financials', handleRefresh);
+    return () => window.removeEventListener('nexus:refresh-financials', handleRefresh);
+  }, [timeframe, selectedBranchTab]);
 
   const branchColors = [
     { stroke: '#10B981', fill: '#10B981', name: 'Emerald' },

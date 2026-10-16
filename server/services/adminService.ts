@@ -42,7 +42,7 @@ export class AdminService {
     return await this.adminRepo.getFacilities();
   }
 
-  public async createFacility(data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status: 'Active' | 'Inactive' }, actor = 'System'): Promise<Facility> {
+  public async createFacility(data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status: 'Active' | 'Inactive'; pricingBasis?: 'Per Hour' | 'Per Day' }, actor = 'System'): Promise<Facility> {
     if (!data.name || !data.branchId) {
       throw new Error('Facility Name and Branch selection are required.');
     }

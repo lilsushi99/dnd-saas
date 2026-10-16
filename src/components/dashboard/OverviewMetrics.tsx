@@ -17,10 +17,12 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
   const [revenue, setRevenue] = useState<number>(0);
   const [expenses, setExpenses] = useState<number>(0);
   const [netProfit, setNetProfit] = useState<number>(0);
+  const [profitMargin, setProfitMargin] = useState<number>(0);
   const [totalBookings, setTotalBookings] = useState<number>(0);
-  const [occupancyRate, setOccupancyRate] = useState<string>('0.0');
+  const [occupancyRate, setOccupancyRate] = useState<number>(0);
+  const [hasCapacityData, setHasCapacityData] = useState<boolean>(true);
 
-  useEffect(() => {
+  const loadData = () => {
     let period: string = 'all';
     if (selectedRange === 'last_7' || selectedRange === '7D') period = 'last_7_days';
     else if (selectedRange === 'last_30' || selectedRange === '30D') period = 'last_30_days';
@@ -37,38 +39,78 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       endDate: filters?.endDate,
     })
       .then((data) => {
-        setRevenue(data.totalRevenue || 0);
-        setExpenses(data.totalExpenses || 0);
-        setNetProfit(data.netProfit || 0);
+        const rev = data.totalRevenue || 0;
+        const exp = data.totalExpenses || 0;
+        const net = data.netProfit !== undefined ? data.netProfit : rev - exp;
+        const margin =
+          data.netProfitMargin !== undefined
+            ? data.netProfitMargin
+            : rev > 0
+            ? Math.round(((net / rev) * 100) * 10) / 10
+            : 0;
+
+        setRevenue(rev);
+        setExpenses(exp);
+        setNetProfit(net);
+        setProfitMargin(margin);
         setTotalBookings(data.totalBookings || 0);
-        const occ =
-          data.occupancyRate !== undefined
-            ? Number(data.occupancyRate).toFixed(1)
-            : data.totalBookings > 0
-            ? Math.min(100, (data.totalBookings / 30) * 100).toFixed(1)
-            : '0.0';
-        setOccupancyRate(occ);
+
+        if (data.occupancyRate !== undefined && !isNaN(Number(data.occupancyRate))) {
+          setOccupancyRate(Number(data.occupancyRate));
+          setHasCapacityData(true);
+        } else {
+          setOccupancyRate(0);
+          setHasCapacityData(false);
+        }
       })
       .catch((err) => {
         console.error('Error fetching overview metrics:', err);
         setRevenue(0);
         setExpenses(0);
         setNetProfit(0);
+        setProfitMargin(0);
         setTotalBookings(0);
-        setOccupancyRate('0.0');
+        setOccupancyRate(0);
+        setHasCapacityData(false);
       });
+  };
+
+  useEffect(() => {
+    loadData();
+
+    const handleRefresh = () => {
+      loadData();
+    };
+
+    window.addEventListener('nexus:refresh-financials', handleRefresh);
+    return () => window.removeEventListener('nexus:refresh-financials', handleRefresh);
   }, [selectedBranch, selectedRange, filters?.startDate, filters?.endDate]);
 
-  const formatCurrency = (val: number) => `₦${Math.round(val).toLocaleString()}`;
+  const formatCurrency = (val: number) => {
+    const rounded = Math.round(val);
+    if (rounded < 0) {
+      return `-₦${Math.abs(rounded).toLocaleString()}`;
+    }
+    return `₦${rounded.toLocaleString()}`;
+  };
 
-  const metrics: MetricCardData[] = [
+  const getOccupancyStatus = (rate: number) => {
+    if (rate >= 100) return { label: 'Full', isPos: false };
+    if (rate >= 80) return { label: 'Nearly full', isPos: true };
+    if (rate > 0) return { label: 'Available', isPos: true };
+    return { label: 'No active bookings', isPos: true };
+  };
+
+  const occStatus = getOccupancyStatus(occupancyRate);
+
+  const metrics: (MetricCardData & { valueColor?: string })[] = [
     {
       id: 'revenue',
       title: 'Total Revenue',
       value: formatCurrency(revenue),
-      change: revenue > 0 ? '+100%' : '0.0%',
+      change: revenue > 0 ? 'Recognized' : '₦0',
       isPositive: true,
-      timeframe: 'vs previous period',
+      timeframe: 'qualifying bookings',
       iconClass: 'fa-solid fa-dollar-sign',
       iconBg: 'bg-blue-50',
       iconColor: 'text-blue-600',
@@ -77,9 +119,9 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       id: 'expenses',
       title: 'Operating Expenses',
       value: formatCurrency(expenses),
-      change: expenses > 0 ? '+100%' : '0.0%',
+      change: expenses > 0 ? 'Recorded' : '₦0',
       isPositive: expenses === 0,
-      timeframe: 'vs previous period',
+      timeframe: 'operating expenditures',
       iconClass: 'fa-solid fa-credit-card',
       iconBg: 'bg-slate-50',
       iconColor: 'text-slate-600',
@@ -88,20 +130,36 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       id: 'net_profit',
       title: 'Net Profit',
       value: formatCurrency(netProfit),
-      change: netProfit >= 0 ? '+0.0%' : '-100%',
-      isPositive: netProfit >= 0,
-      timeframe: 'vs previous period',
+      valueColor:
+        netProfit > 0
+          ? 'text-emerald-600'
+          : netProfit < 0
+          ? 'text-rose-600'
+          : 'text-gray-900',
+      change: `${profitMargin >= 0 ? '+' : ''}${profitMargin.toFixed(1)}%`,
+      isPositive: profitMargin >= 0,
+      timeframe: 'profit margin',
       iconClass: 'fa-solid fa-chart-pie',
-      iconBg: 'bg-emerald-50',
-      iconColor: 'text-emerald-600',
+      iconBg:
+        netProfit > 0
+          ? 'bg-emerald-50'
+          : netProfit < 0
+          ? 'bg-rose-50'
+          : 'bg-gray-100',
+      iconColor:
+        netProfit > 0
+          ? 'text-emerald-600'
+          : netProfit < 0
+          ? 'text-rose-600'
+          : 'text-gray-600',
     },
     {
       id: 'total_bookings',
       title: 'Total Bookings',
       value: `${totalBookings.toLocaleString()}`,
-      change: totalBookings > 0 ? `+${totalBookings}` : '0',
+      change: totalBookings > 0 ? `${totalBookings} units` : '0',
       isPositive: true,
-      timeframe: 'total recorded',
+      timeframe: 'qualifying records',
       iconClass: 'fa-solid fa-calendar-check',
       iconBg: 'bg-indigo-50',
       iconColor: 'text-indigo-600',
@@ -109,10 +167,10 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
     {
       id: 'occupancy',
       title: 'Overall Occupancy Rate',
-      value: `${occupancyRate}%`,
-      change: 'Active status',
-      isPositive: true,
-      timeframe: 'utilization',
+      value: hasCapacityData ? `${occupancyRate.toFixed(1)}%` : 'No Data',
+      change: occStatus.label,
+      isPositive: occStatus.isPos,
+      timeframe: 'capacity utilization',
       iconClass: 'fa-solid fa-building',
       iconBg: 'bg-amber-50',
       iconColor: 'text-amber-600',
@@ -140,12 +198,16 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
 
           {/* Middle: Value */}
           <div className="mb-2 min-w-0">
-            <span className="font-heading text-xl sm:text-2xl font-medium text-gray-900 tracking-tight block truncate break-words">
+            <span
+              className={`font-heading text-xl sm:text-2xl font-medium tracking-tight block truncate break-words ${
+                card.valueColor || 'text-gray-900'
+              }`}
+            >
               {card.value}
             </span>
           </div>
 
-          {/* Bottom row: Trend indicator */}
+          {/* Bottom row: Trend / Sub-metric indicator */}
           <div className="flex items-center gap-1.5 text-xs font-normal min-w-0">
             <span
               className={`inline-flex items-center gap-1 font-medium shrink-0 ${

@@ -4,21 +4,25 @@ import { Customer } from '../../types';
 
 interface TopCustomersCardProps {
   branchFilter?: string;
+  filters?: DashboardFilters;
   onNavigateToCrm?: () => void;
 }
 
 export const TopCustomersCard: React.FC<TopCustomersCardProps> = ({
   branchFilter = 'all',
+  filters,
   onNavigateToCrm,
 }) => {
   const [sortBy, setSortBy] = useState<'revenue' | 'frequency'>('revenue');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const selectedBranch = filters?.branch && filters.branch !== 'all' ? filters.branch : branchFilter;
+
+  const loadCustomers = () => {
     setLoading(true);
     CustomerApiService.fetchCustomers({
-      branch: branchFilter !== 'all' ? branchFilter : undefined,
+      branch: selectedBranch !== 'all' ? selectedBranch : undefined,
       sort: sortBy === 'revenue' ? 'revenue_desc' : 'visits_desc',
     })
       .then((data) => {
@@ -31,7 +35,18 @@ export const TopCustomersCard: React.FC<TopCustomersCardProps> = ({
       .finally(() => {
         setLoading(false);
       });
-  }, [branchFilter, sortBy]);
+  };
+
+  useEffect(() => {
+    loadCustomers();
+
+    const handleRefresh = () => {
+      loadCustomers();
+    };
+
+    window.addEventListener('nexus:refresh-financials', handleRefresh);
+    return () => window.removeEventListener('nexus:refresh-financials', handleRefresh);
+  }, [selectedBranch, sortBy]);
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-xs font-sans flex flex-col justify-between h-[480px] overflow-hidden">

@@ -38,13 +38,45 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
       email: 'director@nexuserp.com',
       role: 'Director',
       branch: 'All Branches',
+      branchId: null,
+      status: 'Active',
+      permissions: {
+        dashboard: true,
+        dailyLogger: true,
+        facilityRecords: true,
+        crm: true,
+        expenses: true,
+        reports: true,
+        administration: true,
+        settings: true,
+      },
+      branchScope: null,
     };
     return next();
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
-    req.user = decoded;
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    req.user = {
+      id: decoded.id,
+      name: decoded.name || 'User',
+      email: decoded.email || '',
+      role: decoded.role || 'Staff',
+      branch: decoded.branch || 'All Branches',
+      branchId: decoded.branchId ?? null,
+      status: decoded.status || 'Active',
+      permissions: decoded.permissions || {
+        dashboard: true,
+        dailyLogger: true,
+        facilityRecords: true,
+        crm: true,
+        expenses: true,
+        reports: true,
+        administration: true,
+        settings: true,
+      },
+      branchScope: decoded.branchScope ?? null,
+    };
     next();
   } catch (err: any) {
     // If token expired or invalid, return 401

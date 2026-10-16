@@ -26,18 +26,24 @@ export function useBranches() {
   const createBranch = async (data: { name: string; location: string; status: 'Active' | 'Inactive' }) => {
     const created = await AdminApiService.createBranch(data);
     setBranches((prev) => [created, ...prev]);
+    window.dispatchEvent(new CustomEvent('nexus:refresh-branches'));
+    window.dispatchEvent(new CustomEvent('nexus:refresh-financials'));
     return created;
   };
 
   const updateBranch = async (id: string, updates: Partial<Branch>) => {
     const updated = await AdminApiService.updateBranch(id, updates);
     setBranches((prev) => prev.map((b) => (b.id === id ? updated : b)));
+    window.dispatchEvent(new CustomEvent('nexus:refresh-branches'));
+    window.dispatchEvent(new CustomEvent('nexus:refresh-financials'));
     return updated;
   };
 
   const toggleBranchStatus = async (id: string) => {
     const updated = await AdminApiService.toggleBranchStatus(id);
     setBranches((prev) => prev.map((b) => (b.id === id ? updated : b)));
+    window.dispatchEvent(new CustomEvent('nexus:refresh-branches'));
+    window.dispatchEvent(new CustomEvent('nexus:refresh-financials'));
     return updated;
   };
 
@@ -65,7 +71,7 @@ export function useFacilities() {
     loadFacilities();
   }, [loadFacilities]);
 
-  const createFacility = async (data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status: 'Active' | 'Inactive' }) => {
+  const createFacility = async (data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status: 'Active' | 'Inactive'; pricingBasis?: 'Per Hour' | 'Per Day' }) => {
     const created = await AdminApiService.createFacility(data);
     setFacilities((prev) => [created, ...prev]);
     return created;
