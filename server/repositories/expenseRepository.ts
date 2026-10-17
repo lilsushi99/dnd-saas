@@ -247,7 +247,6 @@ export class ExpenseRepository {
 
   public async createExpense(data: Omit<Expense, 'id' | 'createdAt' | 'createdBy' | 'status'> & { createdBy?: string }): Promise<Expense> {
     const all = await this.getAllExpenses();
-    const count = all.length + 1;
     const year = new Date().getFullYear();
     if (data.branch && !['both branches', 'all branches'].includes(data.branch.trim().toLowerCase())) {
       const branchRows = await executeQuery<any>(
@@ -258,6 +257,17 @@ export class ExpenseRepository {
         throw new Error(`Cannot create expense for deactivated branch "${branchRows[0].name}".`);
       }
     }
+
+    let maxSeq = all.length;
+    for (const exp of all) {
+      const match = String(exp.id).match(/\d+$/);
+      if (match) {
+        const num = parseInt(match[0], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+    const nextSeq = maxSeq + 1;
+    const newId = `EXP-${year}-${String(nextSeq).padStart(4, '0')}`;
 
     const newExpense: Expense = {
       id: newId,

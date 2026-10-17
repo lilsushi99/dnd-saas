@@ -22,13 +22,13 @@ async function ensureAiTableExists() {
         KEY \`idx_ai_messages_conv\` (\`conversation_id\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
-  } catch (err) {
-    console.error('Error creating ai_messages table:', err);
+  } catch (err: any) {
+    // Schema is handled either here or in db.ensureDatabaseSchema / memoryDb
   }
 }
 
 // Call on module load
-ensureAiTableExists().catch(console.error);
+ensureAiTableExists().catch(() => {});
 
 const getGeminiClient = () => {
   const apiKey = config.geminiApiKey || process.env.GEMINI_API_KEY;

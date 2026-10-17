@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CustomerApiService } from '../../services/customerService';
-import { Customer } from '../../types';
+import { Customer, DashboardFilters } from '../../types';
 
 interface TopCustomersCardProps {
   branchFilter?: string;

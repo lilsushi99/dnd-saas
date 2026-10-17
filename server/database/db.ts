@@ -51,7 +51,9 @@ function getMemoryDb(): any {
 
   // Initialize schema and seed data from dummy_database.sql
   try {
-    const dummySqlPath = path.join(process.cwd(), 'dummy_database.sql');
+    const dummySqlPath = fs.existsSync(path.join(process.cwd(), 'server', 'database', 'dummy_database.sql'))
+      ? path.join(process.cwd(), 'server', 'database', 'dummy_database.sql')
+      : path.join(process.cwd(), 'dummy_database.sql');
     if (fs.existsSync(dummySqlPath)) {
       const rawSql = fs.readFileSync(dummySqlPath, 'utf8');
       let cleaned = rawSql
@@ -137,6 +139,11 @@ function getMemoryDb(): any {
   try {
     memoryDb.exec(`
       ALTER TABLE bookings ADD COLUMN end_time TEXT DEFAULT '17:00:00';
+    `);
+  } catch (e) {}
+  try {
+    memoryDb.exec(`
+      ALTER TABLE users ADD COLUMN last_login DATETIME;
     `);
   } catch (e) {}
 
@@ -351,7 +358,7 @@ export async function checkDbConnection(): Promise<boolean> {
     const conn = await Promise.race([
       activePool.getConnection(),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Connection timeout to MySQL')), 8000)
+        setTimeout(() => reject(new Error('Connection timeout to MySQL')), 2000)
       ),
     ]);
 
@@ -383,7 +390,14 @@ export async function executeQuery<T = any>(sql: string, params: any[] = []): Pr
       const [rows] = await activePool.execute(sql, params);
       return rows as T[];
     } catch (err: any) {
-      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'PROTOCOL_CONNECTION_LOST') {
+      if (
+        err.code === 'ECONNREFUSED' ||
+        err.code === 'ETIMEDOUT' ||
+        err.code === 'ENOTFOUND' ||
+        err.code === 'EAI_AGAIN' ||
+        err.code === 'PROTOCOL_CONNECTION_LOST' ||
+        (err.message && (err.message.includes('closed') || err.message.includes('timeout')))
+      ) {
         console.warn(`⚠️ MySQL disconnected (${err.message}) — falling back to in-memory database`);
         isUsingMemory = true;
       } else {
@@ -441,7 +455,14 @@ export async function executeTransaction<T>(
         connection.release();
       }
     } catch (err: any) {
-      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+      if (
+        err.code === 'ECONNREFUSED' ||
+        err.code === 'ETIMEDOUT' ||
+        err.code === 'ENOTFOUND' ||
+        err.code === 'EAI_AGAIN' ||
+        err.code === 'PROTOCOL_CONNECTION_LOST' ||
+        (err.message && (err.message.includes('closed') || err.message.includes('timeout')))
+      ) {
         isUsingMemory = true;
       } else {
         throw err;

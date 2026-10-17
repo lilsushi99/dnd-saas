@@ -293,6 +293,7 @@ export interface FinanceAnalyticsSummary {
     category: string;
     amount: number;
     percentage: number;
+    color?: string;
   }>;
   topFacilities: Array<{
     facility: string;
