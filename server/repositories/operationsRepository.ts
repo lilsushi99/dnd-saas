@@ -884,4 +884,46 @@ export class OperationsRepository {
       throw err;
     }
   }
+
+  public async getNotifications(): Promise<any[]> {
+    try {
+      const rows = await executeQuery<any>(
+        `SELECT id, title, message, type, is_read as isRead, created_at as createdAt
+         FROM system_notifications
+         ORDER BY created_at DESC
+         LIMIT 30`
+      );
+      return (rows || []).map((r) => ({
+        id: String(r.id),
+        title: r.title,
+        message: r.message,
+        type: r.type,
+        read: Boolean(r.isRead === 1 || r.isRead === true),
+        createdAt: r.createdAt,
+      }));
+    } catch (err) {
+      console.error('Error in getNotifications:', err);
+      return [];
+    }
+  }
+
+  public async markAllNotificationsRead(): Promise<boolean> {
+    try {
+      await executeQuery(`UPDATE system_notifications SET is_read = 1 WHERE is_read = 0`);
+      return true;
+    } catch (err) {
+      console.error('Error in markAllNotificationsRead:', err);
+      return false;
+    }
+  }
+
+  public async markNotificationRead(id: string | number): Promise<boolean> {
+    try {
+      await executeQuery(`UPDATE system_notifications SET is_read = 1 WHERE id = ?`, [id]);
+      return true;
+    } catch (err) {
+      console.error('Error in markNotificationRead:', err);
+      return false;
+    }
+  }
 }

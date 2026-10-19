@@ -26,7 +26,17 @@ export class ExpenseService {
     if (!data.name || !data.amount || !data.date || !data.branch) {
       throw new Error('Expense Name, Amount, Date, and Branch are required fields.');
     }
-    return await this.repository.createExpense(data);
+    const created = await this.repository.createExpense(data);
+    try {
+      const { executeQuery } = await import('../database/db');
+      await executeQuery(
+        `INSERT INTO system_notifications (title, message, type, is_read, created_at) VALUES (?, ?, 'info', 0, NOW())`,
+        ['Expense Recorded', `Expense of ₦${Number(created.amount || 0).toLocaleString()} recorded for ${created.name}.`]
+      );
+    } catch {
+      // Non-fatal
+    }
+    return created;
   }
 
   public async updateExpense(id: string, updates: Partial<Expense>): Promise<Expense> {

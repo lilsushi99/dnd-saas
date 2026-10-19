@@ -205,6 +205,41 @@ export class AuthController {
     res.json({ success: true, message: 'Logged out successfully.' });
   };
 
+  /** Refreshes the session token for an active user */
+  public refreshToken = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const u = req.user!;
+      const rows = await executeQuery<any>(
+        `SELECT id, name, email, role, branch, status, profile_photo AS profilePhoto FROM users WHERE id = ? LIMIT 1`,
+        [u.id]
+      );
+      const user = rows && rows[0];
+      if (!user || user.status !== 'Active') {
+        res.status(403).json({ success: false, message: 'Account is deactivated or no longer exists.' });
+        return;
+      }
+      const permissions = await loadPermissionsForRole(user.role);
+      const newToken = signToken({ id: user.id, email: user.email, role: user.role });
+      res.json({
+        success: true,
+        token: newToken,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          branch: user.branch,
+          status: user.status,
+          profilePhoto: user.profilePhoto ?? null,
+          permissions,
+        },
+      });
+    } catch (err: any) {
+      console.error('Refresh Token Error:', err.message);
+      res.status(500).json({ success: false, message: 'Failed to refresh session token.' });
+    }
+  };
+
   /** Public branding endpoint to supply business identity, logo, and theme color before login. */
   public getPublicBranding = async (_req: Request, res: Response): Promise<void> => {
     try {

@@ -127,4 +127,41 @@ export class OperationsApiService {
     );
     return data.profile;
   }
+
+  public static async fetchNotifications(): Promise<{
+    id: string;
+    title: string;
+    message: string;
+    type: string;
+    read: boolean;
+    createdAt: string;
+  }[]> {
+    try {
+      const data = await this.request<{ success: boolean; notifications: any[] }>(
+        '/api/operations/notifications'
+      );
+      return data.notifications || [];
+    } catch (e) {
+      console.warn('Failed to fetch notifications:', e);
+      return [];
+    }
+  }
+
+  public static async markAllNotificationsRead(): Promise<boolean> {
+    try {
+      await this.request('/api/operations/notifications/read-all', { method: 'PATCH' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public static async markNotificationRead(id: string): Promise<boolean> {
+    try {
+      await this.request(`/api/operations/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

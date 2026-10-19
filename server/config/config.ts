@@ -66,8 +66,34 @@ export function validateAndLoadConfig(): AppConfig {
   const env = isProd ? 'production' : (process.env.NODE_ENV || 'development');
   process.env.NODE_ENV = env;
 
-  // AI Studio's preview proxy expects 3000 (the default); hosts that assign a port via PORT are respected.
-  const port = parseInt(process.env.PORT || '3000', 10) || 3000;
+  // Parse CLI args (e.g. tsx server.ts --port 3000 --host 0.0.0.0)
+  let cliPort: number | null = null;
+  const portArgIndex = process.argv.indexOf('--port');
+  if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
+    const parsed = parseInt(process.argv[portArgIndex + 1], 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      cliPort = parsed;
+    }
+  }
+
+  // AI Studio's preview proxy expects port 3000 (DEFAULT_APP_PORT).
+  // In container environments with NGINX reverse-proxying, process.env.PORT=8080 is
+  // assigned to NGINX, so the Node/Express application must listen on port 3000.
+  let port = 3000;
+  if (cliPort) {
+    port = cliPort;
+  } else if (process.env.APP_PORT) {
+    port = parseInt(process.env.APP_PORT, 10);
+  } else if (process.env.DEFAULT_APP_PORT) {
+    port = parseInt(process.env.DEFAULT_APP_PORT, 10);
+  } else if (
+    process.env.PORT &&
+    process.env.PORT !== '8080' &&
+    process.env.PORT !== process.env.NGINX_PORT
+  ) {
+    port = parseInt(process.env.PORT, 10);
+  }
+
   const appName = process.env.APP_NAME || 'Nexus ERP Enterprise';
   const appUrl = process.env.APP_URL || `http://localhost:${port}`;
   const clientUrl = process.env.CLIENT_URL || `http://localhost:${port}`;

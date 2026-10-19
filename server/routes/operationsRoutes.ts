@@ -21,4 +21,9 @@ router.put('/settings', requirePermission('settings'), OperationsController.upda
 router.get('/profile', OperationsController.getProfileSettings);
 router.put('/profile', OperationsController.updateProfileSettings);
 
+// Activity Notifications
+router.get('/notifications', OperationsController.getNotifications);
+router.patch('/notifications/read-all', OperationsController.markAllNotificationsRead);
+router.patch('/notifications/:id/read', OperationsController.markNotificationRead);
+
 export default router;

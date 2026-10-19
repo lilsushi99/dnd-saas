@@ -51,7 +51,17 @@ export class OperationsService {
       status: bookingData.status || status,
     };
 
-    return await this.repository.addBooking(processedData);
+    const created = await this.repository.addBooking(processedData);
+    try {
+      const { executeQuery } = await import('../database/db');
+      await executeQuery(
+        `INSERT INTO system_notifications (title, message, type, is_read, created_at) VALUES (?, ?, 'success', 0, NOW())`,
+        ['New Booking Created', `Booking ${created.id} created for ${created.clientName || 'Client'}.`]
+      );
+    } catch {
+      // Non-fatal
+    }
+    return created;
   }
 
   public async updateBooking(id: string, bookingData: Partial<Booking>): Promise<Booking> {
@@ -86,5 +96,17 @@ export class OperationsService {
 
   public async searchClients(query?: string) {
     return await this.repository.getClients(query);
+  }
+
+  public async getNotifications() {
+    return await this.repository.getNotifications();
+  }
+
+  public async markAllNotificationsRead() {
+    return await this.repository.markAllNotificationsRead();
+  }
+
+  public async markNotificationRead(id: string | number) {
+    return await this.repository.markNotificationRead(id);
   }
 }

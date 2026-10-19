@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../../types';
 import { UserAvatar } from '../common/UserAvatar';
+import { OperationsApiService } from '../../services/operationsService';
 
 interface TopNavbarProps {
   pageTitle: string;
@@ -27,6 +28,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   interface NotificationItem {
     id: string;
     title: string;
+    message?: string;
     time: string;
     type: string;
     icon: string;
@@ -36,10 +38,94 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
+  const formatTimeAgo = (dateStr: string) => {
+    try {
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      if (isNaN(diffMs)) return dateStr;
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getNotificationIcon = (title: string, type: string) => {
+    const t = title.toLowerCase();
+    if (t.includes('booking')) return 'fa-solid fa-calendar-check';
+    if (t.includes('expense')) return 'fa-solid fa-receipt';
+    if (t.includes('expir')) return 'fa-solid fa-triangle-exclamation';
+    if (type === 'success') return 'fa-solid fa-circle-check';
+    if (type === 'warning') return 'fa-solid fa-triangle-exclamation';
+    return 'fa-solid fa-bell';
+  };
+
+  const getTargetNav = (title: string) => {
+    const t = title.toLowerCase();
+    if (t.includes('booking')) return 'daily_logger';
+    if (t.includes('expense')) return 'expenses';
+    if (t.includes('subscri') || t.includes('client')) return 'crm';
+    return 'dashboard';
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const items = await OperationsApiService.fetchNotifications();
+      setNotifications(
+        items.map((n: any) => ({
+          id: String(n.id),
+          title: n.title,
+          message: n.message,
+          time: formatTimeAgo(n.createdAt),
+          type: n.type || 'info',
+          icon: getNotificationIcon(n.title, n.type),
+          read: Boolean(n.read),
+          targetNav: getTargetNav(n.title),
+        }))
+      );
+    } catch {
+      // Non-fatal: notifications fail safely without breaking UI
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+
+    const onRefresh = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener('nexus:refresh-financials', onRefresh);
+    window.addEventListener('focus', onRefresh);
+    const interval = setInterval(loadNotifications, 60000);
+
+    return () => {
+      window.removeEventListener('nexus:refresh-financials', onRefresh);
+      window.removeEventListener('focus', onRefresh);
+      clearInterval(interval);
+    };
+  }, []);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    await OperationsApiService.markAllNotificationsRead();
+  };
+
+  const handleItemClick = async (notif: NotificationItem) => {
+    if (!notif.read) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
+      );
+      await OperationsApiService.markNotificationRead(notif.id);
+    }
+    if (onNavigate) onNavigate(notif.targetNav);
+    setShowNotifications(false);
   };
 
   return (
@@ -126,10 +212,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                   notifications.map((notif) => (
                     <div
                       key={notif.id}
-                      onClick={() => {
-                        if (onNavigate) onNavigate(notif.targetNav);
-                        setShowNotifications(false);
-                      }}
+                      onClick={() => handleItemClick(notif)}
                       className={`p-3.5 hover:bg-gray-50 transition-colors flex items-start gap-3 cursor-pointer ${
                         !notif.read ? 'bg-blue-50/30' : ''
                       }`}

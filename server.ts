@@ -6,7 +6,25 @@ import { checkDbConnection } from './server/database/db';
 
 async function startServer() {
   const app = createApiApp();
-  const PORT = config.port || 3000;
+
+  // Parse CLI args (e.g. tsx server.ts --port 3000 --host 0.0.0.0)
+  let cliPort: number | null = null;
+  const portArgIndex = process.argv.indexOf('--port');
+  if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
+    const parsed = parseInt(process.argv[portArgIndex + 1], 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      cliPort = parsed;
+    }
+  }
+
+  let cliHost: string | null = null;
+  const hostArgIndex = process.argv.indexOf('--host');
+  if (hostArgIndex !== -1 && process.argv[hostArgIndex + 1]) {
+    cliHost = process.argv[hostArgIndex + 1];
+  }
+
+  const PORT = cliPort || config.port || 3000;
+  const HOST = cliHost || process.env.HOST || '0.0.0.0';
 
   // Serve static uploaded files
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -33,8 +51,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 [Server] Express running on http://0.0.0.0:${PORT} (${config.env} mode)`);
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 [Server] Express running on http://${HOST}:${PORT} (${config.env} mode)`);
   });
 }
 

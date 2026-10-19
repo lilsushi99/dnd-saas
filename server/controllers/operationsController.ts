@@ -110,4 +110,32 @@ export class OperationsController {
       return res.status(500).json({ success: false, error: err.message });
     }
   }
+
+  public static async getNotifications(req: Request, res: Response) {
+    try {
+      const notifications = await service.getNotifications();
+      return res.json({ success: true, notifications });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  public static async markAllNotificationsRead(req: Request, res: Response) {
+    try {
+      await service.markAllNotificationsRead();
+      return res.json({ success: true, message: 'All notifications marked as read.' });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  public static async markNotificationRead(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      await service.markNotificationRead(id);
+      return res.json({ success: true, message: 'Notification marked as read.' });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
 }

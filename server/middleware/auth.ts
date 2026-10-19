@@ -84,7 +84,7 @@ export function extractBearerToken(req: Request): string | null {
 
 export function isUnrestrictedBranch(branch: string | null | undefined): boolean {
   const b = (branch || '').trim().toLowerCase();
-  return b === '' || b === 'all branches' || b === 'all';
+  return b === '' || b === 'all branches' || b === 'all' || b === 'both branches' || b === 'multiple';
 }
 
 /** Loads the user fresh from MySQL on every request so deactivation / role changes apply immediately. */
@@ -119,16 +119,39 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     }
 
     const permissions = await loadPermissionsForRole(row.role);
+    let branchId = row.branchId || null;
+    let branchName = row.branch || '';
+
+    // If branchId is not stored on the user row, resolve it from the branches table
+    if (!branchId && branchName && !isUnrestrictedBranch(branchName)) {
+      try {
+        const bRows = await executeQuery<any>(
+          `SELECT id, name FROM branches WHERE name = ? OR id = ? LIMIT 1`,
+          [branchName, branchName]
+        );
+        if (bRows && bRows.length > 0) {
+          branchId = bRows[0].id;
+          branchName = bRows[0].name;
+        }
+      } catch {
+        // Fall back to existing values
+      }
+    }
+
+    const isPrivileged = row.role === 'Director' || row.role === 'System Administrator';
+
     req.user = {
       id: row.id,
       name: row.name,
       email: row.email,
       role: row.role,
-      branch: row.branch,
-      branchId: row.branchId || null,
+      branch: branchName,
+      branchId,
       status: row.status,
       permissions,
-      branchScope: isUnrestrictedBranch(row.branch) ? null : { id: row.branchId || null, name: row.branch },
+      branchScope: isPrivileged || isUnrestrictedBranch(branchName)
+        ? null
+        : { id: branchId, name: branchName },
     };
     next();
   } catch (err) {
@@ -167,8 +190,10 @@ export function requireRole(...roles: string[]) {
 function matchesScope(value: unknown, scope: { id: string | null; name: string }): boolean {
   if (value === undefined || value === null || value === '') return true;
   const v = String(value).trim().toLowerCase();
-  if (v === 'all' ) return false;
-  return v === scope.name.toLowerCase() || (!!scope.id && v === scope.id.toLowerCase());
+  if (v === 'all') return true;
+  if (scope.name && v === scope.name.toLowerCase()) return true;
+  if (scope.id && v === scope.id.toLowerCase()) return true;
+  return false;
 }
 
 /**
@@ -177,22 +202,33 @@ function matchesScope(value: unknown, scope: { id: string | null; name: string }
  *  - writes naming a different branch are rejected.
  */
 export function enforceBranchScope(req: Request, res: Response, next: NextFunction): void {
+  const isPrivileged = req.user?.role === 'Director' || req.user?.role === 'System Administrator';
   const scope = req.user?.branchScope;
-  if (!scope) {
+  if (isPrivileged || !scope) {
     next();
     return;
   }
+
   const requested = req.query.branch;
   if (requested !== undefined && requested !== 'all' && requested !== '' && !matchesScope(requested, scope)) {
-    res.status(403).json({ success: false, error: 'You do not have access to that branch.', message: 'You do not have access to that branch.' });
+    res.status(403).json({
+      success: false,
+      error: `You do not have access to that branch. Your assigned branch is ${scope.name}.`,
+      message: `You do not have access to that branch. Your assigned branch is ${scope.name}.`,
+    });
     return;
   }
+  // Scope the query to the user's assigned branch
   req.query.branch = scope.id || scope.name;
 
   if (req.body && typeof req.body === 'object') {
     for (const key of ['branch', 'branchId', 'branch_id', 'branchName']) {
-      if (key in req.body && !matchesScope(req.body[key], scope)) {
-        res.status(403).json({ success: false, error: 'You do not have access to that branch.', message: 'You do not have access to that branch.' });
+      if (key in req.body && req.body[key] && !matchesScope(req.body[key], scope)) {
+        res.status(403).json({
+          success: false,
+          error: `You do not have permission to assign records to another branch. Your assigned branch is ${scope.name}.`,
+          message: `You do not have permission to assign records to another branch. Your assigned branch is ${scope.name}.`,
+        });
         return;
       }
     }

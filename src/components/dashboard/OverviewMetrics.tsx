@@ -21,8 +21,12 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
   const [totalBookings, setTotalBookings] = useState<number>(0);
   const [occupancyRate, setOccupancyRate] = useState<number>(0);
   const [hasCapacityData, setHasCapacityData] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = () => {
+    setLoading(true);
+    setError(null);
     let period: string = 'all';
     if (selectedRange === 'last_7' || selectedRange === '7D') period = 'last_7_days';
     else if (selectedRange === 'last_30' || selectedRange === '30D') period = 'last_30_days';
@@ -63,16 +67,14 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
           setOccupancyRate(0);
           setHasCapacityData(false);
         }
+        setError(null);
       })
       .catch((err) => {
         console.error('Error fetching overview metrics:', err);
-        setRevenue(0);
-        setExpenses(0);
-        setNetProfit(0);
-        setProfitMargin(0);
-        setTotalBookings(0);
-        setOccupancyRate(0);
-        setHasCapacityData(false);
+        setError(err.message || 'Failed to load metrics for this filter');
+      })
+      .finally(() => {
+        setLoading(false);
       });
   };
 

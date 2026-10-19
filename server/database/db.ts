@@ -208,6 +208,15 @@ function getMemoryDb(): any {
       timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS system_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'info',
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Ensure default administrator / director accounts exist
@@ -350,6 +359,19 @@ export async function ensureDatabaseSchema(): Promise<void> {
           await conn.query(`ALTER TABLE clients ADD COLUMN status VARCHAR(20) DEFAULT 'Active'`);
         }
       }
+
+      // Ensure system_notifications table exists
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS system_notifications (
+          id INT NOT NULL AUTO_INCREMENT,
+          title VARCHAR(200) NOT NULL,
+          message TEXT NOT NULL,
+          type VARCHAR(50) NOT NULL DEFAULT 'info',
+          is_read TINYINT(1) NOT NULL DEFAULT 0,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
 
       schemaStatus.ok = true;
       console.log('✅ [Schema Verification] Verified all database tables, expense category colors, and settings columns');
