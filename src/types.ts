@@ -6,8 +6,13 @@ export interface User {
   email: string;
   phone?: string;
   avatar?: string;
+  profilePhoto?: string;
   role: string;
   organization: string;
+  branch?: string;
+  branchId?: string | null;
+  status?: string;
+  permissions?: Record<string, boolean>;
 }
 
 export interface NavItem {
@@ -39,6 +44,7 @@ export interface MetricCardData {
   value: string;
   change: string;
   isPositive: boolean;
+  isNeutral?: boolean;
   timeframe: string;
   iconClass: string;
   iconBg: string;
@@ -120,7 +126,9 @@ export interface DailyLoggerSummary {
 export interface SystemSettings {
   businessName?: string;
   directorName?: string;
+  directorPhoto?: string;
   businessLogo?: string;
+  primaryColor?: string;
   currency?: string;
   timeZone?: string;
   address?: string;
@@ -271,6 +279,16 @@ export interface FinanceAnalyticsSummary {
   uniqueClients: number;
   averageBookingValue: number;
   occupancyRate?: number;
+  totalOccupied?: number;
+  totalCapacity?: number;
+  facilityOccupancy?: Array<{
+    id: string;
+    name: string;
+    branchId: string;
+    branchName: string;
+    occupied: number;
+    capacity: number;
+  }>;
   revenueVsExpensesChart: Array<{
     period: string;
     revenue: number;
@@ -341,6 +359,8 @@ export interface AdminUser {
   email: string;
   role: 'Director' | 'Manager' | 'Receptionist' | 'Accountant';
   branch: string;
+  branchId?: string | null;
+  profilePhoto?: string | null;
   status: 'Active' | 'Inactive';
   createdAt: string;
 }

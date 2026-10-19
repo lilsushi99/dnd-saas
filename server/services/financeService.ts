@@ -74,15 +74,53 @@ export class FinanceService {
 
     // ---------------------------------------------------------------- occupancy (as of the end of the range, never in the future)
     const refDate = range.end && range.end < today ? range.end : today;
-    const scopedFacilities = allFacilities.filter(
-      (f) => f.status === 'Active' && (!selected || f.branchId === selected.id || (f.branchName || '').toLowerCase() === selected.name.toLowerCase())
-    );
+    const activeBranchIdSet = new Set(allBranches.filter((b) => b.status === 'Active').map((b) => b.id.toLowerCase()));
+    const activeBranchNameSet = new Set(allBranches.filter((b) => b.status === 'Active').map((b) => b.name.toLowerCase()));
+
+    const scopedFacilities = allFacilities.filter((f) => {
+      if (f.status !== 'Active') return false;
+      if (selected) {
+        return f.branchId === selected.id || (f.branchName || '').toLowerCase() === selected.name.toLowerCase();
+      }
+      return activeBranchIdSet.has((f.branchId || '').toLowerCase()) || activeBranchNameSet.has((f.branchName || '').toLowerCase());
+    });
+
     const totalCapacity = scopedFacilities.reduce((s, f) => s + (Number(f.capacity) || 0), 0);
-    const facilityKeys = new Set(scopedFacilities.map((f) => `${(f.branchName || '').toLowerCase()}|${f.name.toLowerCase()}`));
-    const occupied = allBookings.filter(
-      (b) => bookingOccupiesOn(b, refDate) && facilityKeys.has(`${(b.branch || '').toLowerCase()}|${(b.facility || '').toLowerCase()}`)
-    ).length;
-    const occupancyRate = occupancyPercent(Math.min(occupied, totalCapacity), totalCapacity);
+
+    let totalOccupied = 0;
+    const facilityOccupancy = scopedFacilities.map((f) => {
+      const fNameNorm = (f.name || '').trim().toLowerCase();
+      const fBranchIdNorm = (f.branchId || '').trim().toLowerCase();
+      const fBranchNameNorm = (f.branchName || '').trim().toLowerCase();
+      const cap = Math.max(1, Number(f.capacity) || 1);
+
+      const fOccupying = allBookings.filter((b) => {
+        if (!bookingOccupiesOn(b, refDate)) return false;
+        const bFacNorm = (b.facility || '').trim().toLowerCase();
+        const bBranchNorm = (b.branch || '').trim().toLowerCase();
+        const facMatch = bFacNorm === fNameNorm;
+        const branchMatch =
+          !bBranchNorm ||
+          !fBranchNameNorm ||
+          bBranchNorm === fBranchNameNorm ||
+          bBranchNorm === fBranchIdNorm;
+        return facMatch && branchMatch;
+      }).length;
+
+      const occupied = Math.min(fOccupying, cap);
+      totalOccupied += occupied;
+
+      return {
+        id: f.id,
+        name: f.name,
+        branchId: f.branchId,
+        branchName: f.branchName || '',
+        occupied,
+        capacity: cap,
+      };
+    });
+
+    const occupancyRate = totalCapacity > 0 && scopedFacilities.length > 0 ? occupancyPercent(totalOccupied, totalCapacity) : 0;
 
     // ---------------------------------------------------------------- time series
     const spanDays = range.start && range.end ? Math.round((Date.parse(range.end) - Date.parse(range.start)) / 86400000) + 1 : null;
@@ -158,8 +196,14 @@ export class FinanceService {
       const cur = catAgg.get(key) || { count: 0, cents: 0 };
       catAgg.set(key, { count: cur.count + 1, cents: cur.cents + x.cents });
     }
+    const FALLBACK_PALETTE = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899', '#06B6D4', '#64748B'];
     const expenseCategoryBreakdown = [...catAgg.entries()]
-      .map(([category, v]) => ({ category, amount: fromCents(v.cents), percentage: pct(v.cents, expenseCents), color: colorByCategory.get(category.toLowerCase()) }))
+      .map(([category, v], idx) => ({
+        category,
+        amount: fromCents(v.cents),
+        percentage: pct(v.cents, expenseCents),
+        color: colorByCategory.get(category.toLowerCase()) || FALLBACK_PALETTE[idx % FALLBACK_PALETTE.length],
+      }))
       .sort((a, b) => b.amount - a.amount);
     const topExpenseCategories = [...catAgg.entries()]
       .map(([category, v]) => ({ category, count: v.count, totalAmount: fromCents(v.cents) }))
@@ -189,6 +233,9 @@ export class FinanceService {
       uniqueClients,
       averageBookingValue: totalBookings > 0 ? fromCents(Math.round(revenueCents / totalBookings)) : 0,
       occupancyRate,
+      totalOccupied,
+      totalCapacity,
+      facilityOccupancy,
       revenueVsExpensesChart,
       monthlyRevenueChart,
       facilityRevenueBreakdown,

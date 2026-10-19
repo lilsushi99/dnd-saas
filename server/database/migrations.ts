@@ -101,6 +101,23 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    id: '004_branding_theme_and_profile',
+    description: 'Adds business_settings.primary_color and director_photo for theme customization and branding',
+    async up(c) {
+      if (await tableExists(c, 'business_settings')) {
+        await addColumnIfMissing(c, 'business_settings', 'primary_color', "VARCHAR(20) NOT NULL DEFAULT '#1C64FF'");
+        await addColumnIfMissing(c, 'business_settings', 'director_photo', 'LONGTEXT DEFAULT NULL');
+        await addColumnIfMissing(c, 'business_settings', 'business_logo', 'LONGTEXT DEFAULT NULL');
+      }
+      if (await tableExists(c, 'users')) {
+        await addColumnIfMissing(c, 'users', 'profile_photo', 'LONGTEXT DEFAULT NULL');
+      }
+      if (await tableExists(c, 'profile_settings')) {
+        await addColumnIfMissing(c, 'profile_settings', 'profile_photo', 'LONGTEXT DEFAULT NULL');
+      }
+    },
+  },
 ];
 
 export async function runMigrations(c: Conn): Promise<string[]> {

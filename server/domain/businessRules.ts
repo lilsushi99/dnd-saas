@@ -185,7 +185,8 @@ export function recordBelongsToBranch(
   branch: BranchRef
 ): boolean {
   if (rec.branchId && rec.branchId.toLowerCase() === branch.id.toLowerCase()) return true;
-  return String(rec.branch ?? '').trim().toLowerCase() === branch.name.toLowerCase();
+  const br = String(rec.branch ?? '').trim().toLowerCase();
+  return br === branch.name.toLowerCase() || br === branch.id.toLowerCase();
 }
 
 // ---------------------------------------------------------------- expenses

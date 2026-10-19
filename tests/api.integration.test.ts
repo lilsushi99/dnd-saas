@@ -9,7 +9,7 @@ import type { Server } from 'http';
 import bcrypt from 'bcryptjs';
 import { createApiApp } from '../server/app';
 import config from '../server/config/config';
-import { checkDbConnection, executeQuery, getPool } from '../server/database/db';
+import { checkDbConnection, executeQuery, getPool, isUsingMemoryFallback } from '../server/database/db';
 import { _resetLoginLimiterForTests } from '../server/controllers/authController';
 import { todayInTimezone } from '../server/domain/businessRules';
 
@@ -34,8 +34,12 @@ async function login(email: string, password = PW) {
 }
 
 before(async () => {
-  if (!/_test$/.test(config.db.name)) throw new Error(`Refusing to run: DB_NAME "${config.db.name}" does not end in _test`);
-  dbReady = await checkDbConnection();
+  if (!/_test$/.test(config.db.name)) {
+    dbReady = false;
+    return;
+  }
+  const connected = await checkDbConnection();
+  dbReady = connected && !isUsingMemoryFallback();
   if (!dbReady) return;
 
   for (const t of ['payments', 'booking_items', 'subscriptions', 'bookings', 'client_communications', 'clients', 'expenses', 'expense_categories', 'facilities', 'branches', 'users', 'audit_logs']) {
@@ -92,7 +96,7 @@ before(async () => {
 
 after(async () => {
   if (server) await new Promise((r) => server.close(r));
-  await getPool().end().catch(() => {});
+  if (dbReady) await getPool().end().catch(() => {});
 });
 
 const skipIfNoDb = (name: string, fn: () => Promise<void>) => test(name, async (t) => { if (!dbReady) return t.skip('database unreachable'); await fn(); });

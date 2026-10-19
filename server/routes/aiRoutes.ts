@@ -13,14 +13,12 @@ async function ensureAiTableExists() {
   try {
     await executeQuery(`
       CREATE TABLE IF NOT EXISTS \`ai_messages\` (
-        \`id\` VARCHAR(100) NOT NULL,
+        \`id\` VARCHAR(100) NOT NULL PRIMARY KEY,
         \`conversation_id\` VARCHAR(100) NOT NULL DEFAULT 'default',
-        \`sender\` ENUM('user', 'assistant') NOT NULL,
+        \`sender\` VARCHAR(50) NOT NULL,
         \`text\` TEXT NOT NULL,
-        \`timestamp\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (\`id\`),
-        KEY \`idx_ai_messages_conv\` (\`conversation_id\`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        \`timestamp\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `);
   } catch (err: any) {
     // Schema is handled either here or in db.ensureDatabaseSchema / memoryDb

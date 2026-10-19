@@ -36,7 +36,7 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
   useEffect(() => {
     AdminApiService.fetchBranches()
       .then((bList) => {
-        setBranches(bList || []);
+        setBranches((bList || []).filter((b) => b.status === 'Active'));
       })
       .catch((err) => console.error('Failed to load branches:', err));
   }, []);
@@ -53,7 +53,7 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
     let period = 'last_30_days';
     if (timeframe === '7D') period = 'last_7_days';
     else if (timeframe === '30D') period = 'last_30_days';
-    else if (timeframe === '12M') period = 'full_year';
+    else if (timeframe === '12M') period = 'last_12_months';
 
     const branch =
       selectedBranchTab !== 'compare' && selectedBranchTab !== 'all'
@@ -214,7 +214,8 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
                 type="button"
                 onClick={() => setSelectedBranchTab(b.name)}
                 className={`px-3 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
-                  selectedBranchTab === b.name
+                  selectedBranchTab.toLowerCase() === b.name.toLowerCase() ||
+                  selectedBranchTab.toLowerCase() === b.id.toLowerCase()
                     ? 'bg-white text-gray-900 font-medium shadow-2xs'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}

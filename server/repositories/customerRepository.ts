@@ -405,13 +405,13 @@ export class CustomerRepository {
           .filter((c) =>
             c.branchHistory.some((bh) => {
               const bhLower = bh.toLowerCase();
-              return branchTerms.some((term) => bhLower === term || bhLower.includes(term) || term.includes(bhLower));
+              return branchTerms.some((term) => bhLower === term);
             })
           )
           .map((c) => {
             const branchBookings = c.bookings.filter((b) => {
               const bBranch = (b.branch || '').toLowerCase();
-              return branchTerms.some((term) => bBranch === term || bBranch.includes(term) || term.includes(bBranch));
+              return branchTerms.some((term) => bBranch === term);
             });
             const branchRevenue = branchBookings
               .filter((b) => b.status !== 'Cancelled')

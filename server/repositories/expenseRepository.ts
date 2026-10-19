@@ -156,10 +156,21 @@ export class ExpenseRepository {
       }
 
       if (filters?.branch && filters.branch !== 'all') {
-        const bLower = filters.branch.toLowerCase();
+        const bInput = filters.branch.trim().toLowerCase();
+        let validBranchNames = [bInput];
+        try {
+          const bRows = await executeQuery<any>(`SELECT id, name FROM branches`);
+          const matched = bRows.find(
+            (b: any) => b.id.toLowerCase() === bInput || b.name.toLowerCase() === bInput
+          );
+          if (matched) {
+            validBranchNames = [matched.id.toLowerCase(), matched.name.toLowerCase()];
+          }
+        } catch (e) {}
+
         list = list.filter((e) => {
           const eBranch = e.branch.toLowerCase();
-          if (eBranch === bLower) return true;
+          if (validBranchNames.includes(eBranch)) return true;
           if (eBranch === 'both branches' || eBranch === 'all branches') {
             return true;
           }
@@ -366,11 +377,17 @@ export class ExpenseRepository {
   public async getSummaryMetrics(filters?: ExpenseFilters): Promise<ExpenseSummaryMetrics> {
     const isSingleBranch = filters?.branch && filters.branch !== 'all' && filters.branch.toLowerCase() !== 'both branches';
 
+    let activeBranchesCount = 1;
+    try {
+      const activeRows = await executeQuery<any>(`SELECT id FROM branches WHERE status = 'Active'`);
+      if (activeRows && activeRows.length > 0) activeBranchesCount = activeRows.length;
+    } catch (e) {}
+
     const todayExpensesList = await this.getAllExpenses({ ...filters, dateFilter: 'today' });
     const todaysExpenses = todayExpensesList.reduce((sum, e) => {
       const isSplit = e.branch.toLowerCase() === 'both branches' || e.branch.toLowerCase() === 'all branches';
       if (isSingleBranch && isSplit) {
-        return sum + Number(e.amount) / 2;
+        return sum + Number(e.amount) / activeBranchesCount;
       }
       return sum + Number(e.amount);
     }, 0);
@@ -380,7 +397,7 @@ export class ExpenseRepository {
     const totalAllExpenses = allList.reduce((sum, e) => {
       const isSplit = e.branch.toLowerCase() === 'both branches' || e.branch.toLowerCase() === 'all branches';
       if (isSingleBranch && isSplit) {
-        return sum + Number(e.amount) / 2;
+        return sum + Number(e.amount) / activeBranchesCount;
       }
       return sum + Number(e.amount);
     }, 0);
@@ -391,7 +408,7 @@ export class ExpenseRepository {
     const totalExpenses = filteredList.reduce((sum, e) => {
       const isSplit = e.branch.toLowerCase() === 'both branches' || e.branch.toLowerCase() === 'all branches';
       if (isSingleBranch && isSplit) {
-        return sum + Number(e.amount) / 2;
+        return sum + Number(e.amount) / activeBranchesCount;
       }
       return sum + Number(e.amount);
     }, 0);

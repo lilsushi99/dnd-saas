@@ -37,6 +37,14 @@ export class AdminService {
     return updated;
   }
 
+  public async deleteBranch(id: string, actor = 'System'): Promise<boolean> {
+    const success = await this.adminRepo.deleteBranch(id, actor);
+    if (!success) {
+      throw notFound('Branch not found.');
+    }
+    return true;
+  }
+
   // --- FACILITIES ---
   public async getFacilities(): Promise<Facility[]> {
     return await this.adminRepo.getFacilities();
@@ -70,23 +78,23 @@ export class AdminService {
     return await this.adminRepo.getUsers();
   }
 
-  public async createUser(data: Omit<AdminUser, 'id' | 'createdAt'>): Promise<AdminUser> {
+  public async createUser(data: Omit<AdminUser, 'id' | 'createdAt'>, actor = 'System'): Promise<AdminUser> {
     if (!data.name || !data.email || !data.role) {
       throw new Error('Name, Email, and Role are required.');
     }
-    return await this.adminRepo.createUser(data);
+    return await this.adminRepo.createUser(data, actor);
   }
 
-  public async updateUser(id: string, updates: Partial<AdminUser>): Promise<AdminUser> {
-    const updated = await this.adminRepo.updateUser(id, updates);
+  public async updateUser(id: string, updates: Partial<AdminUser>, actor = 'System', actorId?: string): Promise<AdminUser> {
+    const updated = await this.adminRepo.updateUser(id, updates, actor, actorId);
     if (!updated) {
       throw new Error('User not found.');
     }
     return updated;
   }
 
-  public async toggleUserStatus(id: string): Promise<AdminUser> {
-    const updated = await this.adminRepo.toggleUserStatus(id);
+  public async toggleUserStatus(id: string, actor = 'System', actorId?: string): Promise<AdminUser> {
+    const updated = await this.adminRepo.toggleUserStatus(id, actor, actorId);
     if (!updated) {
       throw new Error('User not found.');
     }
@@ -97,8 +105,12 @@ export class AdminService {
     return await this.adminRepo.getRolesPermissions();
   }
 
-  public async updateRolePermissions(role: 'Director' | 'Manager' | 'Receptionist' | 'Accountant', permissions: RolePermission['permissions']): Promise<RolePermission> {
-    const updated = await this.adminRepo.updateRolePermissions(role, permissions);
+  public async updateRolePermissions(
+    role: 'Director' | 'Manager' | 'Receptionist' | 'Accountant',
+    permissions: RolePermission['permissions'],
+    actor = 'System'
+  ): Promise<RolePermission> {
+    const updated = await this.adminRepo.updateRolePermissions(role, permissions, actor);
     if (!updated) {
       throw new Error('Role not found.');
     }

@@ -3,6 +3,7 @@ import { useBranches } from '../../hooks/useAdmin';
 import { Branch } from '../../types';
 import { BranchModal } from './BranchModal';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
+import { useToast } from '../../context/ToastContext';
 
 const statusOptions: SelectOption[] = [
   { id: 'all', label: 'All Status' },
@@ -11,13 +12,19 @@ const statusOptions: SelectOption[] = [
 ];
 
 export const BranchesPage: React.FC = () => {
-  const { branches, loading, error, createBranch, updateBranch, toggleBranchStatus } = useBranches();
+  const { branches, loading, error, createBranch, updateBranch, toggleBranchStatus, deleteBranch } = useBranches();
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Inactive'>('all');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+
+  // Delete Confirmation State
+  const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const filteredBranches = branches.filter((b) => {
     const matchesSearch =
@@ -41,10 +48,66 @@ export const BranchesPage: React.FC = () => {
   };
 
   const handleModalSubmit = async (data: { name: string; location: string; status: 'Active' | 'Inactive' }) => {
-    if (editingBranch) {
-      await updateBranch(editingBranch.id, data);
-    } else {
-      await createBranch(data);
+    try {
+      if (editingBranch) {
+        await updateBranch(editingBranch.id, data);
+        showToast('Branch Updated', `Branch "${data.name}" has been updated successfully.`, 'success');
+      } else {
+        await createBranch(data);
+        showToast('Branch Created', `New branch "${data.name}" has been created successfully.`, 'success');
+      }
+      setIsModalOpen(false);
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to save branch.', 'error');
+      throw err;
+    }
+  };
+
+  const handleToggleStatus = async (branch: Branch) => {
+    try {
+      const updated = await toggleBranchStatus(branch.id);
+      showToast(
+        'Status Updated',
+        `Branch "${branch.name}" is now ${updated.status}.`,
+        updated.status === 'Active' ? 'success' : 'info'
+      );
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to update branch status.', 'error');
+    }
+  };
+
+  const handleOpenDelete = (branch: Branch) => {
+    setBranchToDelete(branch);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!branchToDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteBranch(branchToDelete.id);
+      showToast('Branch Deleted', `Branch "${branchToDelete.name}" has been permanently removed.`, 'success');
+      setBranchToDelete(null);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Failed to delete branch.');
+      showToast('Cannot Delete Branch', err.message || 'Branch has dependencies and cannot be deleted.', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeactivateInstead = async () => {
+    if (!branchToDelete) return;
+    try {
+      if (branchToDelete.status === 'Active') {
+        await toggleBranchStatus(branchToDelete.id);
+        showToast('Branch Deactivated', `Branch "${branchToDelete.name}" has been deactivated to preserve records.`, 'info');
+      }
+      setBranchToDelete(null);
+      setDeleteError(null);
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to deactivate branch.', 'error');
     }
   };
 
@@ -200,7 +263,7 @@ export const BranchesPage: React.FC = () => {
                           Edit
                         </button>
                         <button
-                          onClick={() => toggleBranchStatus(branch.id)}
+                          onClick={() => handleToggleStatus(branch)}
                           className={`px-2.5 py-1.5 text-xs font-medium border rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
                             branch.status === 'Active'
                               ? 'text-amber-700 hover:bg-amber-50 border-amber-200'
@@ -210,6 +273,14 @@ export const BranchesPage: React.FC = () => {
                         >
                           <i className={`fa-solid ${branch.status === 'Active' ? 'fa-ban' : 'fa-circle-check'}`}></i>
                           {branch.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleOpenDelete(branch)}
+                          className="px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          title="Delete Branch"
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
+                          Delete
                         </button>
                       </div>
                     </td>
@@ -221,13 +292,98 @@ export const BranchesPage: React.FC = () => {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Edit / Create Modal */}
       <BranchModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleModalSubmit}
         initialData={editingBranch}
       />
+
+      {/* In-App Delete Confirmation Modal */}
+      {branchToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-xs p-4 animate-fadeIn font-sans">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="p-6">
+              <div className="flex items-center gap-3.5 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                  <i className="fa-solid fa-triangle-exclamation text-base"></i>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    Delete Branch: {branchToDelete.name}
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    {branchToDelete.id} — {branchToDelete.location}
+                  </p>
+                </div>
+              </div>
+
+              {deleteError ? (
+                <div className="space-y-4">
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+                    <i className="fa-solid fa-circle-exclamation text-amber-600 text-sm mt-0.5 shrink-0"></i>
+                    <div>
+                      <p className="font-semibold text-amber-900 mb-1">Permanent Deletion Blocked</p>
+                      <p>{deleteError}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    To preserve financial reports, historical bookings, and audit records, deactivate this branch instead of permanently deleting it.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Are you sure you want to permanently delete <strong>{branchToDelete.name}</strong>? If this branch has any historical bookings, facilities, expenses, or assigned users, permanent deletion will be prevented to protect company records.
+                </p>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setBranchToDelete(null);
+                  setDeleteError(null);
+                }}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              {deleteError ? (
+                <button
+                  type="button"
+                  onClick={handleDeactivateInstead}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i className="fa-solid fa-ban text-xs"></i>
+                  Deactivate Branch Instead
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <i className="fa-solid fa-circle-notch fa-spin text-xs"></i>
+                      Checking Dependencies...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-trash-can text-xs"></i>
+                      Confirm Delete
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

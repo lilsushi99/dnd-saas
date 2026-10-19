@@ -5,7 +5,7 @@ import { Booking, ClientSuggestion, SystemSettings, FacilityRecordSummary } from
 import config from '../config/config';
 import { executeQuery, executeTransaction } from '../database/db';
 import { auditRepository } from './auditRepository';
-import { calculateBookingLifecycle } from '../domain/businessRules';
+import { calculateBookingLifecycle, bookingOccupiesOn } from '../domain/businessRules';
 
 function persistBase64Image(dataUri?: string, prefix = 'img'): string {
   if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:image/')) {
@@ -78,11 +78,11 @@ export class OperationsRepository {
         if (branchRows && branchRows.length > 0) {
           const matchedName = branchRows[0].name;
           const matchedId = branchRows[0].id;
-          whereConditions.push(`(branch = ? OR branch = ? OR branch LIKE ?)`);
-          params.push(matchedId, matchedName, `%${matchedName}%`);
+          whereConditions.push(`(LOWER(branch) = LOWER(?) OR LOWER(branch) = LOWER(?))`);
+          params.push(matchedId, matchedName);
         } else {
-          whereConditions.push(`(branch = ? OR branch LIKE ?)`);
-          params.push(b, `%${b}%`);
+          whereConditions.push(`LOWER(branch) = LOWER(?)`);
+          params.push(b);
         }
       }
 
@@ -181,7 +181,9 @@ export class OperationsRepository {
         return {
           businessName: r.business_name || '',
           directorName: r.director_name || '',
+          directorPhoto: r.director_photo || '',
           businessLogo: r.business_logo || '',
+          primaryColor: r.primary_color || '#1C64FF',
           currency: r.currency || '',
           timeZone: r.timezone || '',
           address: r.address || '',
@@ -205,7 +207,9 @@ export class OperationsRepository {
     return {
       businessName: '',
       directorName: '',
+      directorPhoto: '',
       businessLogo: '',
+      primaryColor: '#1C64FF',
       currency: '',
       timeZone: '',
       address: '',
@@ -224,32 +228,89 @@ export class OperationsRepository {
   }
 
   public async updateSettings(newSettings: Partial<SystemSettings>): Promise<SystemSettings> {
-    const existing = await executeQuery<any>(`SELECT id FROM business_settings WHERE id = 1`);
-    const taxRateVal = newSettings.taxRate !== undefined && newSettings.taxRate !== null ? `${newSettings.taxRate}%` : '0%';
-    const logoToSave = persistBase64Image(newSettings.businessLogo, 'logo');
+    const existingRows = await executeQuery<any>(`SELECT * FROM business_settings WHERE id = 1`);
+    const cur = existingRows && existingRows.length > 0 ? existingRows[0] : null;
 
-    if (!existing || existing.length === 0) {
+    // Validate primary brand color if provided
+    let primaryColorVal = cur?.primary_color || '#1C64FF';
+    if (newSettings.primaryColor !== undefined) {
+      const cleanHex = String(newSettings.primaryColor).trim();
+      const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/;
+      if (!HEX_COLOR_REGEX.test(cleanHex)) {
+        const err: any = new Error('Invalid hexadecimal color code. Format must be #RGB, #RRGGBB, or #RRGGBBAA.');
+        err.statusCode = 400;
+        throw err;
+      }
+      primaryColorVal = cleanHex;
+    }
+
+    // Handle logo persistence without accidental erasure
+    let logoToSave = cur?.business_logo || '';
+    if (newSettings.businessLogo !== undefined) {
+      if (newSettings.businessLogo === '' || newSettings.businessLogo === null) {
+        logoToSave = '';
+      } else {
+        logoToSave = persistBase64Image(newSettings.businessLogo, 'logo');
+      }
+    }
+
+    // Handle director photo persistence
+    let directorPhotoToSave = cur?.director_photo || '';
+    if (newSettings.directorPhoto !== undefined) {
+      if (newSettings.directorPhoto === '' || newSettings.directorPhoto === null) {
+        directorPhotoToSave = '';
+      } else {
+        directorPhotoToSave = persistBase64Image(newSettings.directorPhoto, 'director');
+      }
+    }
+
+    // Merge settings preserving non-updated values
+    const bName = newSettings.businessName !== undefined ? newSettings.businessName : (cur?.business_name ?? '');
+    const dName = newSettings.directorName !== undefined ? newSettings.directorName : (cur?.director_name ?? '');
+    const curr = newSettings.currency !== undefined ? newSettings.currency : (cur?.currency ?? '');
+    const tz = newSettings.timeZone !== undefined ? newSettings.timeZone : (cur?.timezone ?? '');
+    const addr = newSettings.address !== undefined ? newSettings.address : (cur?.address ?? '');
+    const ph = newSettings.phone !== undefined ? newSettings.phone : (cur?.phone ?? '');
+    const em = newSettings.email !== undefined ? newSettings.email : (cur?.email ?? '');
+    const web = newSettings.website !== undefined ? newSettings.website : (cur?.website ?? '');
+    const lang = newSettings.language !== undefined ? newSettings.language : (cur?.language ?? '');
+
+    let taxRateVal = cur?.tax_rate ?? '0%';
+    if (newSettings.taxRate !== undefined && newSettings.taxRate !== null) {
+      taxRateVal = `${newSettings.taxRate}%`;
+    }
+
+    const invPref = newSettings.invoicePrefix !== undefined ? newSettings.invoicePrefix : (cur?.invoice_prefix ?? '');
+    const bkPref = newSettings.bookingPrefix !== undefined ? newSettings.bookingPrefix : (cur?.booking_prefix ?? '');
+    const clPref = newSettings.clientPrefix !== undefined ? newSettings.clientPrefix : (cur?.client_prefix ?? '');
+    const expPref = newSettings.expensePrefix !== undefined ? newSettings.expensePrefix : (cur?.expense_prefix ?? '');
+    const catPref = newSettings.categoryPrefix !== undefined ? newSettings.categoryPrefix : (cur?.category_prefix ?? '');
+    const brCode = newSettings.branchCode !== undefined ? newSettings.branchCode : (cur?.branch_code ?? '');
+
+    if (!cur) {
       await executeQuery(
-        `INSERT INTO business_settings (id, business_name, director_name, business_logo, currency, timezone, address, phone, email, website, language, tax_rate, invoice_prefix, booking_prefix, client_prefix, expense_prefix, category_prefix, branch_code)
-         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO business_settings (id, business_name, director_name, director_photo, business_logo, primary_color, currency, timezone, address, phone, email, website, language, tax_rate, invoice_prefix, booking_prefix, client_prefix, expense_prefix, category_prefix, branch_code)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          newSettings.businessName ?? '',
-          newSettings.directorName ?? '',
+          bName,
+          dName,
+          directorPhotoToSave,
           logoToSave,
-          newSettings.currency ?? '',
-          newSettings.timeZone ?? '',
-          newSettings.address ?? '',
-          newSettings.phone ?? '',
-          newSettings.email ?? '',
-          newSettings.website ?? '',
-          newSettings.language ?? '',
+          primaryColorVal,
+          curr,
+          tz,
+          addr,
+          ph,
+          em,
+          web,
+          lang,
           taxRateVal,
-          newSettings.invoicePrefix ?? '',
-          newSettings.bookingPrefix ?? '',
-          newSettings.clientPrefix ?? '',
-          newSettings.expensePrefix ?? '',
-          newSettings.categoryPrefix ?? '',
-          newSettings.branchCode ?? '',
+          invPref,
+          bkPref,
+          clPref,
+          expPref,
+          catPref,
+          brCode,
         ]
       );
     } else {
@@ -257,7 +318,9 @@ export class OperationsRepository {
         `UPDATE business_settings SET
          business_name = ?,
          director_name = ?,
+         director_photo = ?,
          business_logo = ?,
+         primary_color = ?,
          currency = ?,
          timezone = ?,
          address = ?,
@@ -274,25 +337,33 @@ export class OperationsRepository {
          branch_code = ?
          WHERE id = 1`,
         [
-          newSettings.businessName ?? '',
-          newSettings.directorName ?? '',
+          bName,
+          dName,
+          directorPhotoToSave,
           logoToSave,
-          newSettings.currency ?? '',
-          newSettings.timeZone ?? '',
-          newSettings.address ?? '',
-          newSettings.phone ?? '',
-          newSettings.email ?? '',
-          newSettings.website ?? '',
-          newSettings.language ?? '',
+          primaryColorVal,
+          curr,
+          tz,
+          addr,
+          ph,
+          em,
+          web,
+          lang,
           taxRateVal,
-          newSettings.invoicePrefix ?? '',
-          newSettings.bookingPrefix ?? '',
-          newSettings.clientPrefix ?? '',
-          newSettings.expensePrefix ?? '',
-          newSettings.categoryPrefix ?? '',
-          newSettings.branchCode ?? '',
+          invPref,
+          bkPref,
+          clPref,
+          expPref,
+          catPref,
+          brCode,
         ]
       );
+    }
+
+    // Synchronize director profile photo if updated
+    if (newSettings.directorPhoto !== undefined) {
+      await executeQuery(`UPDATE users SET profile_photo = ? WHERE role = 'Director' OR id = 'USR-001'`, [directorPhotoToSave || null]);
+      await executeQuery(`UPDATE profile_settings SET profile_photo = ? WHERE user_id = 'USR-001'`, [directorPhotoToSave || null]);
     }
 
     auditRepository.logAction({
@@ -690,8 +761,8 @@ export class OperationsRepository {
       const bookingParams: any[] = [];
 
       if (targetBranchId || targetBranchName) {
-        bookingSql += ` AND (branch = ? OR branch = ? OR branch LIKE ?)`;
-        bookingParams.push(targetBranchName || targetBranchId, targetBranchId || targetBranchName, `%${targetBranchName || targetBranchId}%`);
+        bookingSql += ` AND (LOWER(branch) = LOWER(?) OR LOWER(branch) = LOWER(?))`;
+        bookingParams.push(targetBranchName || targetBranchId, targetBranchId || targetBranchName);
       }
 
       if (filters?.dateFilter) {
@@ -771,19 +842,27 @@ export class OperationsRepository {
         }
       }
 
-      const totalEnterpriseRev = matchingBookings.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
+      const totalEnterpriseRev = matchingBookings
+        .filter((b: any) => b.status !== 'Cancelled')
+        .reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
+
+      const todayStr = new Date().toISOString().substring(0, 10);
+      let refDate = todayStr;
+      if (filters?.dateFilter === 'custom' && filters.endDate) {
+        refDate = filters.endDate < todayStr ? filters.endDate : todayStr;
+      }
 
       return Array.from(facilityMap.values()).map(item => {
-        const count = item.bookings.length;
-        const revenue = item.bookings.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
+        const qualifyingBookings = item.bookings.filter((b: any) => b.status !== 'Cancelled');
+        const count = qualifyingBookings.length;
+        const revenue = qualifyingBookings.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
         const avgSpend = count > 0 ? Math.round(revenue / count) : 0;
         const percentageOfTotal = totalEnterpriseRev > 0 ? Number(((revenue / totalEnterpriseRev) * 100).toFixed(1)) : 0;
 
-        const activeCount = item.bookings.filter((b: any) => b.status === 'Active' || b.status === 'Upcoming').length;
-        let occupancy = 0;
-        if (item.capacity > 0 && activeCount > 0) {
-          occupancy = Math.min(100, Math.round((activeCount / item.capacity) * 100));
-        }
+        const occupiedCount = qualifyingBookings.filter((b: any) => bookingOccupiesOn(b, refDate)).length;
+        const cap = Number(item.capacity) || 0;
+        const effectiveOccupied = Math.min(occupiedCount, cap);
+        let occupancy = cap > 0 ? Math.round((effectiveOccupied / cap) * 100) : 0;
 
         let status: 'Operational' | 'Peak Load' | 'Optimal' | 'Maintenance' = 'Operational';
         if (occupancy >= 100) status = 'Peak Load';

@@ -54,6 +54,16 @@ export class AdminController {
     }
   };
 
+  public deleteBranch = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      await this.adminService.deleteBranch(id, actorName(req));
+      res.json({ success: true, message: 'Branch deleted successfully' });
+    } catch (err: any) {
+      sendError(res, err);
+    }
+  };
+
   // --- FACILITIES ---
   public getFacilities = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -105,7 +115,7 @@ export class AdminController {
 
   public createUser = async (req: Request, res: Response): Promise<void> => {
     try {
-      const newUser = await this.adminService.createUser(req.body);
+      const newUser = await this.adminService.createUser(req.body, actorName(req));
       res.status(201).json({ success: true, data: newUser, message: 'User created successfully' });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -115,7 +125,7 @@ export class AdminController {
   public updateUser = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const updated = await this.adminService.updateUser(id, req.body);
+      const updated = await this.adminService.updateUser(id, req.body, actorName(req), req.user?.id);
       res.json({ success: true, data: updated, message: 'User updated successfully' });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -125,7 +135,7 @@ export class AdminController {
   public toggleUserStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const updated = await this.adminService.toggleUserStatus(id);
+      const updated = await this.adminService.toggleUserStatus(id, actorName(req), req.user?.id);
       res.json({ success: true, data: updated, message: `User status changed to ${updated.status}` });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -144,7 +154,7 @@ export class AdminController {
   public updateRolePermissions = async (req: Request, res: Response): Promise<void> => {
     try {
       const { role } = req.params;
-      const updated = await this.adminService.updateRolePermissions(role as any, req.body.permissions);
+      const updated = await this.adminService.updateRolePermissions(role as any, req.body.permissions, actorName(req));
       res.json({ success: true, data: updated, message: `Permissions for role ${role} updated` });
     } catch (err: any) {
       res.status(400).json({ success: false, message: err.message });
@@ -195,58 +205,144 @@ export class AdminController {
   // --- FILE UPLOADS ---
   public uploadFile = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { fileName, fileType, fileSize, entityType, fileData } = req.body;
+      const actor = req.user;
+      if (!actor) {
+        res.status(401).json({ success: false, message: 'Authentication required.' });
+        return;
+      }
+
+      const { fileName, fileType, fileSize, entityType, fileData, userId } = req.body;
       if (!fileName || !fileData) {
         res.status(400).json({ success: false, message: 'fileName and fileData are required' });
         return;
       }
 
-      let savedUrl = fileData;
-
-      if (typeof fileData === 'string' && fileData.startsWith('data:')) {
-        const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (matches && matches.length === 3) {
-          const mimeType = matches[1];
-          const base64Data = matches[2];
-          const buffer = Buffer.from(base64Data, 'base64');
-
-          const ext = mimeType.split('/')[1] || 'png';
-          const sanitizedName = fileName.replace(/[^a-zA-Z0-9_\.-]/g, '_');
-          const uniqueFileName = `${Date.now()}_${sanitizedName}`;
-          const uploadsDir = path.join(process.cwd(), 'uploads');
-
-          if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
-          }
-
-          const filePathOnDisk = path.join(uploadsDir, uniqueFileName);
-          fs.writeFileSync(filePathOnDisk, buffer);
-
-          savedUrl = `/uploads/${uniqueFileName}`;
+      // Authorization checks
+      const isDirectorOrAdmin = actor.role === 'Director' || actor.permissions?.administration === true || actor.permissions?.settings === true;
+      if (entityType === 'logo' || entityType === 'company_logo' || entityType === 'director_photo') {
+        if (!isDirectorOrAdmin) {
+          res.status(403).json({ success: false, message: 'Only administrators and directors can update business branding or director photos.' });
+          return;
         }
       }
 
+      const targetUserId = userId || actor.id;
+      if ((entityType === 'profile_photo' || entityType === 'avatar' || entityType === 'director_photo') && targetUserId !== actor.id) {
+        if (!isDirectorOrAdmin) {
+          res.status(403).json({ success: false, message: "You do not have permission to change another user's profile picture." });
+          return;
+        }
+      }
+
+      // Validate base64 payload
+      if (typeof fileData !== 'string' || !fileData.startsWith('data:')) {
+        res.status(400).json({ success: false, message: 'Invalid file data encoding.' });
+        return;
+      }
+
+      const matches = fileData.match(/^data:([A-Za-z0-9\/\+\-\.]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        res.status(400).json({ success: false, message: 'Invalid data URI format.' });
+        return;
+      }
+
+      const declaredMime = matches[1].toLowerCase();
+      const base64Data = matches[2];
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      // Size validation (Max 5MB)
+      const MAX_BYTES = 5 * 1024 * 1024;
+      if (buffer.length > MAX_BYTES || (fileSize && Number(fileSize) > MAX_BYTES)) {
+        res.status(400).json({ success: false, message: 'File size exceeds the 5MB limit. Please upload a smaller image.' });
+        return;
+      }
+
+      // Magic bytes & format validation
+      let confirmedExt = '';
+      const isPng = buffer.length > 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+      const isJpeg = buffer.length > 2 && buffer[0] === 0xff && buffer[1] === 0xd8;
+      const isWebp = buffer.length > 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+      const textPreview = buffer.subarray(0, Math.min(buffer.length, 1024)).toString('utf-8').trim().toLowerCase();
+      const isSvg = declaredMime.includes('svg') || textPreview.includes('<svg');
+
+      if (isPng) {
+        confirmedExt = 'png';
+      } else if (isJpeg) {
+        confirmedExt = 'jpg';
+      } else if (isWebp) {
+        confirmedExt = 'webp';
+      } else if (isSvg) {
+        // Sanitize SVG: reject active scripts or handlers
+        const fullSvg = buffer.toString('utf-8');
+        const dangerousPatterns = [
+          /<script/i,
+          /onload\s*=/i,
+          /onerror\s*=/i,
+          /onclick\s*=/i,
+          /javascript\s*:/i,
+          /<iframe/i,
+          /<object/i,
+          /<embed/i,
+          /<foreignObject/i,
+        ];
+        if (dangerousPatterns.some((p) => p.test(fullSvg))) {
+          res.status(400).json({ success: false, message: 'Unsafe SVG content detected. Scripts and event handlers are prohibited.' });
+          return;
+        }
+        confirmedExt = 'svg';
+      } else {
+        res.status(400).json({ success: false, message: 'Unsupported image format. Allowed formats are PNG, JPEG, WebP, and clean SVG.' });
+        return;
+      }
+
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const safeBaseName = path.basename(fileName, path.extname(fileName)).replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 50);
+      const uniqueFileName = `${entityType}_${Date.now()}_${safeBaseName}.${confirmedExt}`;
+      const filePathOnDisk = path.join(uploadsDir, uniqueFileName);
+
+      fs.writeFileSync(filePathOnDisk, buffer);
+      const savedUrl = `/uploads/${uniqueFileName}`;
+
       await executeQuery(
         `INSERT INTO file_uploads (file_name, file_path, file_type, file_size, entity_type) VALUES (?, ?, ?, ?, ?)`,
-        [fileName, savedUrl, fileType || 'image/png', fileSize || 0, entityType || 'logo']
+        [fileName, savedUrl, fileType || `image/${confirmedExt}`, buffer.length, entityType || 'logo']
       );
 
-      // Persist to business_settings / users if logo or profile photo
+      // Persist to business_settings / users
       if (entityType === 'logo' || entityType === 'company_logo') {
         await executeQuery(`UPDATE business_settings SET business_logo = ? WHERE id = 1`, [savedUrl]);
-      } else if (entityType === 'profile_photo' || entityType === 'avatar' || entityType === 'user_avatar') {
-        await executeQuery(`UPDATE business_settings SET profile_photo = ? WHERE id = 1`, [savedUrl]);
+      } else if (entityType === 'director_photo') {
+        await executeQuery(`UPDATE business_settings SET director_photo = ? WHERE id = 1`, [savedUrl]);
         await executeQuery(`UPDATE users SET profile_photo = ? WHERE role = 'Director' OR id = 'USR-001'`, [savedUrl]);
+        await executeQuery(`UPDATE profile_settings SET profile_photo = ? WHERE user_id = 'USR-001'`, [savedUrl]);
+      } else if (entityType === 'profile_photo' || entityType === 'avatar' || entityType === 'user_avatar') {
+        await executeQuery(`UPDATE users SET profile_photo = ? WHERE id = ?`, [savedUrl, targetUserId]);
+        await executeQuery(`UPDATE profile_settings SET profile_photo = ? WHERE user_id = ?`, [savedUrl, targetUserId]);
+        if (targetUserId === actor.id && actor.role === 'Director') {
+          await executeQuery(`UPDATE business_settings SET director_photo = ? WHERE id = 1`, [savedUrl]);
+        }
       }
+
+      auditRepository.logAction({
+        user: actor.name,
+        action: 'UPLOAD_FILE',
+        entity: entityType || 'uploads',
+        entityId: uniqueFileName,
+        newValue: { fileName, url: savedUrl, entityType, targetUserId },
+      });
 
       res.status(201).json({
         success: true,
-        message: 'File uploaded and saved to MySQL successfully',
-        data: { fileName, fileType, fileSize, entityType, url: savedUrl },
+        message: 'File uploaded and saved successfully',
+        data: { fileName, fileType: `image/${confirmedExt}`, fileSize: buffer.length, entityType, url: savedUrl },
       });
     } catch (err: any) {
       console.error('Error uploading file:', err);
-      res.status(500).json({ success: false, message: err.message });
+      res.status(500).json({ success: false, message: err.message || 'File upload failed' });
     }
   };
 }

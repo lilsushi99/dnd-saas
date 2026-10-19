@@ -3,6 +3,7 @@ import { useFacilities, useBranches } from '../../hooks/useAdmin';
 import { Facility } from '../../types';
 import { FacilityModal } from './FacilityModal';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
+import { useToast } from '../../context/ToastContext';
 
 const statusOptions: SelectOption[] = [
   { id: 'all', label: 'All Status' },
@@ -13,6 +14,7 @@ const statusOptions: SelectOption[] = [
 export const FacilitiesPage: React.FC = () => {
   const { facilities, loading, error, createFacility, updateFacility, deleteFacility } = useFacilities();
   const { branches } = useBranches();
+  const { showToast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [branchFilter, setBranchFilter] = useState<string>('all');
@@ -22,8 +24,10 @@ export const FacilitiesPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFacility, setEditingFacility] = useState<Facility | null>(null);
 
-  // Delete confirmation
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // In-app Delete confirmation state
+  const [facilityToDelete, setFacilityToDelete] = useState<Facility | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const filteredFacilities = facilities.filter((f) => {
     const matchesSearch =
@@ -49,17 +53,69 @@ export const FacilitiesPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this facility record?')) {
-      await deleteFacility(id);
+  const handleOpenDelete = (facility: Facility) => {
+    setFacilityToDelete(facility);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!facilityToDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteFacility(facilityToDelete.id);
+      showToast('Facility Deleted', `Facility "${facilityToDelete.name}" deleted successfully.`, 'success');
+      setFacilityToDelete(null);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Failed to delete facility.');
+      showToast('Cannot Delete Facility', err.message || 'Facility has dependencies and cannot be deleted.', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const handleModalSubmit = async (data: { name: string; branchId: string; defaultPrice?: number; capacity: number; status: 'Active' | 'Inactive' }) => {
-    if (editingFacility) {
-      await updateFacility(editingFacility.id, data);
-    } else {
-      await createFacility(data);
+  const handleDeactivateInstead = async () => {
+    if (!facilityToDelete) return;
+    try {
+      await updateFacility(facilityToDelete.id, { status: 'Inactive' });
+      showToast('Facility Deactivated', `Facility "${facilityToDelete.name}" has been deactivated to preserve booking history.`, 'info');
+      setFacilityToDelete(null);
+      setDeleteError(null);
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to deactivate facility.', 'error');
+    }
+  };
+
+  const handleToggleStatus = async (facility: Facility) => {
+    const newStatus = facility.status === 'Active' ? 'Inactive' : 'Active';
+    try {
+      await updateFacility(facility.id, { status: newStatus });
+      showToast('Status Updated', `Facility "${facility.name}" is now ${newStatus}.`, newStatus === 'Active' ? 'success' : 'info');
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to update facility status.', 'error');
+    }
+  };
+
+  const handleModalSubmit = async (data: {
+    name: string;
+    branchId: string;
+    defaultPrice?: number;
+    capacity: number;
+    status: 'Active' | 'Inactive';
+    pricingBasis: 'Per Hour' | 'Per Day';
+  }) => {
+    try {
+      if (editingFacility) {
+        await updateFacility(editingFacility.id, data);
+        showToast('Facility Updated', `Facility "${data.name}" updated successfully.`, 'success');
+      } else {
+        await createFacility(data);
+        showToast('Facility Created', `New facility "${data.name}" created successfully.`, 'success');
+      }
+      setIsModalOpen(false);
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to save facility.', 'error');
+      throw err;
     }
   };
 
@@ -75,7 +131,7 @@ export const FacilitiesPage: React.FC = () => {
             Facilities & Spaces
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Manage bookable space units, default standard pricing, and branch assignments
+            Manage bookable space units, default standard pricing, pricing basis, and branch assignments
           </p>
         </div>
         <button
@@ -181,7 +237,7 @@ export const FacilitiesPage: React.FC = () => {
                   <th className="px-6 py-3.5">Facility</th>
                   <th className="px-6 py-3.5">Branch</th>
                   <th className="px-6 py-3.5">Capacity</th>
-                  <th className="px-6 py-3.5">Default Price</th>
+                  <th className="px-6 py-3.5">Pricing</th>
                   <th className="px-6 py-3.5">Status</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
@@ -196,7 +252,7 @@ export const FacilitiesPage: React.FC = () => {
                         </div>
                         <div>
                           <div>{facility.name}</div>
-                          <div className="text-[10px] text-gray-400 font-normal">{facility.id}</div>
+                          <div className="text-[10px] text-gray-400 font-normal font-sans">{facility.id}</div>
                         </div>
                       </div>
                     </td>
@@ -212,9 +268,14 @@ export const FacilitiesPage: React.FC = () => {
                         {facility.capacity || 5} Max
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-mono">
+                    <td className="px-6 py-4">
                       {facility.defaultPrice !== undefined && facility.defaultPrice !== null ? (
-                        <span className="font-normal text-gray-900">${facility.defaultPrice.toLocaleString()}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-medium text-gray-900">${Number(facility.defaultPrice).toLocaleString()}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-normal">
+                            {facility.pricingBasis || 'Per Day'}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-gray-400 italic text-[11px]">Negotiable / Custom</span>
                       )}
@@ -241,7 +302,19 @@ export const FacilitiesPage: React.FC = () => {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(facility.id)}
+                          onClick={() => handleToggleStatus(facility)}
+                          className={`px-2.5 py-1.5 text-xs font-medium border rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                            facility.status === 'Active'
+                              ? 'text-amber-700 hover:bg-amber-50 border-amber-200'
+                              : 'text-emerald-700 hover:bg-emerald-50 border-emerald-200'
+                          }`}
+                          title={facility.status === 'Active' ? 'Deactivate Facility' : 'Activate Facility'}
+                        >
+                          <i className={`fa-solid ${facility.status === 'Active' ? 'fa-ban' : 'fa-circle-check'}`}></i>
+                          {facility.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleOpenDelete(facility)}
                           className="px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
                           title="Delete Facility"
                         >
@@ -258,7 +331,7 @@ export const FacilitiesPage: React.FC = () => {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Edit / Create Modal */}
       <FacilityModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -266,6 +339,91 @@ export const FacilitiesPage: React.FC = () => {
         initialData={editingFacility}
         branches={branches}
       />
+
+      {/* In-App Delete Confirmation Modal */}
+      {facilityToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-xs p-4 animate-fadeIn font-sans">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="p-6">
+              <div className="flex items-center gap-3.5 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                  <i className="fa-solid fa-triangle-exclamation text-base"></i>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    Delete Facility: {facilityToDelete.name}
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    {facilityToDelete.id} — {facilityToDelete.branchName}
+                  </p>
+                </div>
+              </div>
+
+              {deleteError ? (
+                <div className="space-y-4">
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+                    <i className="fa-solid fa-circle-exclamation text-amber-600 text-sm mt-0.5 shrink-0"></i>
+                    <div>
+                      <p className="font-semibold text-amber-900 mb-1">Permanent Deletion Blocked</p>
+                      <p>{deleteError}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    To keep historical booking reports and client receipts intact, deactivate this facility instead of permanently deleting it.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Are you sure you want to permanently delete <strong>{facilityToDelete.name}</strong>? If this facility has any past or active bookings or subscriptions, permanent deletion will be prevented to protect historical records.
+                </p>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setFacilityToDelete(null);
+                  setDeleteError(null);
+                }}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              {deleteError ? (
+                <button
+                  type="button"
+                  onClick={handleDeactivateInstead}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i className="fa-solid fa-ban text-xs"></i>
+                  Deactivate Facility Instead
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <i className="fa-solid fa-circle-notch fa-spin text-xs"></i>
+                      Checking Dependencies...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-trash-can text-xs"></i>
+                      Confirm Delete
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

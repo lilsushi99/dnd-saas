@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useUsersRoles, useBranches } from '../../hooks/useAdmin';
 import { AdminUser } from '../../types';
+import { UserAvatar } from '../common/UserAvatar';
 import { UserModal } from './UserModal';
 import { RoleMatrixModal } from './RoleMatrixModal';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
@@ -203,9 +204,7 @@ export const UsersRolesPage: React.FC = () => {
                   <tr key={user.id} className="hover:bg-gray-50/60 transition-colors">
                     <td className="px-6 py-4 text-gray-900">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-white font-semibold flex items-center justify-center text-xs shadow-2xs">
-                          {user.name.split(' ').map((n) => n[0]).join('')}
-                        </div>
+                        <UserAvatar name={user.name} photoUrl={user.profilePhoto} size="md" />
                         <div>
                           <div className="text-sm font-medium text-gray-900">{user.name}</div>
                           <div className="text-xs text-gray-400 font-normal font-sans">{user.email}</div>

@@ -2,10 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Facility, Branch } from '../../types';
 import { CustomSelect, SelectOption } from '../common/CustomSelect';
 
+const pricingBasisOptions: SelectOption[] = [
+  { id: 'Per Day', label: 'Per Day (Daily Standard)' },
+  { id: 'Per Hour', label: 'Per Hour (Hourly Rate)' },
+];
+
 interface FacilityModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; branchId: string; defaultPrice?: number; capacity: number; status: 'Active' | 'Inactive' }) => Promise<void>;
+  onSubmit: (data: {
+    name: string;
+    branchId: string;
+    defaultPrice?: number;
+    capacity: number;
+    status: 'Active' | 'Inactive';
+    pricingBasis: 'Per Hour' | 'Per Day';
+  }) => Promise<void>;
   initialData?: Facility | null;
   branches: Branch[];
 }
@@ -22,29 +34,38 @@ export const FacilityModal: React.FC<FacilityModalProps> = ({
   const [defaultPrice, setDefaultPrice] = useState<string>('');
   const [capacity, setCapacity] = useState<number>(5);
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
+  const [pricingBasis, setPricingBasis] = useState<'Per Hour' | 'Per Day'>('Per Day');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // For new facilities, only active branches can be assigned.
+  // For existing facilities being edited, include their current branch even if inactive.
+  const eligibleBranches = branches.filter(
+    (b) => b.status === 'Active' || (initialData && b.id === initialData.branchId)
+  );
 
   useEffect(() => {
     if (initialData) {
       setName(initialData.name);
       setBranchId(initialData.branchId);
-      setDefaultPrice(initialData.defaultPrice !== undefined ? String(initialData.defaultPrice) : '');
+      setDefaultPrice(initialData.defaultPrice !== undefined && initialData.defaultPrice !== null ? String(initialData.defaultPrice) : '');
       setCapacity(initialData.capacity || 5);
       setStatus(initialData.status);
+      setPricingBasis(initialData.pricingBasis === 'Per Hour' ? 'Per Hour' : 'Per Day');
     } else {
       setName('');
-      setBranchId(branches.length > 0 ? branches[0].id : '');
+      setBranchId(eligibleBranches.length > 0 ? eligibleBranches[0].id : '');
       setDefaultPrice('');
       setCapacity(5);
       setStatus('Active');
+      setPricingBasis('Per Day');
     }
     setError(null);
   }, [initialData, isOpen, branches]);
 
-  const branchOptions: SelectOption[] = branches.map((b) => ({
+  const branchOptions: SelectOption[] = eligibleBranches.map((b) => ({
     id: b.id,
-    label: `${b.name} (${b.location})`,
+    label: `${b.name} (${b.location})${b.status === 'Inactive' ? ' [Inactive]' : ''}`,
   }));
 
   if (!isOpen) return null;
@@ -66,6 +87,7 @@ export const FacilityModal: React.FC<FacilityModalProps> = ({
         defaultPrice: priceVal,
         capacity: Math.max(1, capacity),
         status,
+        pricingBasis,
       });
       onClose();
     } catch (err: any) {
@@ -89,7 +111,7 @@ export const FacilityModal: React.FC<FacilityModalProps> = ({
                 {initialData ? 'Edit Facility' : 'Create New Facility'}
               </h3>
               <p className="text-xs text-gray-500 font-sans">
-                {initialData ? 'Modify facility parameters and rates' : 'Register a new space or room unit under a branch'}
+                {initialData ? 'Modify facility parameters, pricing basis, and rates' : 'Register a new space or room unit under an active branch'}
               </p>
             </div>
           </div>
@@ -137,25 +159,36 @@ export const FacilityModal: React.FC<FacilityModalProps> = ({
             <p className="text-[11px] text-gray-400 mt-1">Each Facility belongs strictly to ONE Branch.</p>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Default Price ($) <span className="text-gray-400 font-normal">(Optional)</span>
-            </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={defaultPrice}
-                onChange={(e) => setDefaultPrice(e.target.value)}
-                placeholder="e.g. 450.00"
-                className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Default Price ($) <span className="text-gray-400 font-normal">(Optional)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={defaultPrice}
+                  onChange={(e) => setDefaultPrice(e.target.value)}
+                  placeholder="e.g. 450.00"
+                  className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Pricing Basis <span className="text-red-500">*</span>
+              </label>
+              <CustomSelect
+                options={pricingBasisOptions}
+                value={pricingBasis}
+                onChange={(val) => setPricingBasis(val as 'Per Hour' | 'Per Day')}
+                icon="fa-solid fa-clock"
               />
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">
-              Optional because default pricing may be customized or negotiated during client booking.
-            </p>
           </div>
 
           <div>

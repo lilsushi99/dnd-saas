@@ -40,7 +40,7 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
     if (selectedRange === 'last_7' || selectedRange === '7D') period = 'last_7_days';
     else if (selectedRange === 'last_30' || selectedRange === '30D') period = 'last_30_days';
     else if (selectedRange === 'this_month') period = 'this_month';
-    else if (selectedRange === 'last_12_months' || selectedRange === '12M') period = 'full_year';
+    else if (selectedRange === 'last_12_months' || selectedRange === '12M') period = 'last_12_months';
     else if (selectedRange === 'today') period = 'today';
     else if (selectedRange === 'custom') period = 'custom';
     else if (selectedRange === 'all') period = 'all';
@@ -48,8 +48,8 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
     FinanceApiService.fetchAnalytics({
       branch: selectedBranch !== 'all' ? selectedBranch : undefined,
       period: period as any,
-      startDate: filters?.startDate,
-      endDate: filters?.endDate,
+      startDate: selectedRange === 'custom' ? filters?.startDate : undefined,
+      endDate: selectedRange === 'custom' ? filters?.endDate : undefined,
     })
       .then((data) => {
         setTotalExpense(data.totalExpenses || 0);

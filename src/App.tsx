@@ -5,6 +5,7 @@ import { SignUpScreen } from './components/auth/SignUpScreen';
 import { DashboardShell } from './components/layout/DashboardShell';
 import { AuthService } from './services/authService';
 import { AUTH_EXPIRED_EVENT } from './services/http';
+import { BrandingProvider } from './context/BrandingContext';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<AuthView>('login');
@@ -66,6 +67,13 @@ export default function App() {
     setActiveNavItem('dashboard');
   };
 
+  const handleUpdateUser = (updates: Partial<User>) => {
+    setUser((prev) => ({
+      ...prev,
+      ...updates,
+    }));
+  };
+
   if (isInitializing) {
     return (
       <div className="min-h-screen bg-[#F8F9FB] flex flex-col items-center justify-center p-6 font-sans">
@@ -79,29 +87,32 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] text-gray-900 font-sans antialiased">
-      {currentView === 'login' && (
-        <LoginScreen
-          onNavigate={(view) => setCurrentView(view)}
-          onLoginSuccess={handleLoginSuccess}
-        />
-      )}
+    <BrandingProvider>
+      <div className="min-h-screen bg-[#F8F9FB] text-gray-900 font-sans antialiased">
+        {currentView === 'login' && (
+          <LoginScreen
+            onNavigate={(view) => setCurrentView(view)}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        )}
 
-      {currentView === 'signup' && (
-        <SignUpScreen
-          onNavigate={(view) => setCurrentView(view)}
-          onSignUpSuccess={handleSignUpSuccess}
-        />
-      )}
+        {currentView === 'signup' && (
+          <SignUpScreen
+            onNavigate={(view) => setCurrentView(view)}
+            onSignUpSuccess={handleSignUpSuccess}
+          />
+        )}
 
-      {currentView === 'dashboard' && (
-        <DashboardShell
-          user={user}
-          onLogout={handleLogout}
-          activeNavItem={activeNavItem}
-          onSelectNavItem={(id) => setActiveNavItem(id)}
-        />
-      )}
-    </div>
+        {currentView === 'dashboard' && (
+          <DashboardShell
+            user={user}
+            onLogout={handleLogout}
+            activeNavItem={activeNavItem}
+            onSelectNavItem={(id) => setActiveNavItem(id)}
+            onUpdateUser={handleUpdateUser}
+          />
+        )}
+      </div>
+    </BrandingProvider>
   );
 }

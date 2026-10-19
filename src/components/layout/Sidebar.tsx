@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Logo } from '../Logo';
 import { User } from '../../types';
+import { UserAvatar } from '../common/UserAvatar';
 
 interface SidebarProps {
   activeNavItem: string;
@@ -281,16 +282,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-4 border-t border-gray-100 bg-gray-50/50 shrink-0">
           <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-white border border-gray-200/70 shadow-2xs">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="relative shrink-0">
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-semibold flex items-center justify-center text-xs shadow-xs">
-                  {user.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .substring(0, 2)}
-                </div>
-                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-white"></div>
-              </div>
+              <UserAvatar
+                name={user.name}
+                photoUrl={user.profilePhoto || user.avatar}
+                size="md"
+                showOnlineStatus={true}
+              />
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-semibold text-gray-900 truncate">
                   {user.name}

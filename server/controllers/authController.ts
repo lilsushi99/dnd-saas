@@ -204,6 +204,43 @@ export class AuthController {
   public logout = async (_req: Request, res: Response): Promise<void> => {
     res.json({ success: true, message: 'Logged out successfully.' });
   };
+
+  /** Public branding endpoint to supply business identity, logo, and theme color before login. */
+  public getPublicBranding = async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const rows = await executeQuery<any>(
+        `SELECT business_name AS businessName, business_logo AS businessLogo, primary_color AS primaryColor, director_name AS directorName, director_photo AS directorPhoto FROM business_settings WHERE id = 1 LIMIT 1`
+      );
+      const branding = (rows && rows[0]) || {
+        businessName: 'Nexus ERP',
+        businessLogo: '',
+        primaryColor: '#1C64FF',
+        directorName: 'Dominion',
+        directorPhoto: '',
+      };
+      res.json({
+        success: true,
+        branding: {
+          businessName: branding.businessName || 'Nexus ERP',
+          businessLogo: branding.businessLogo || '',
+          primaryColor: branding.primaryColor || '#1C64FF',
+          directorName: branding.directorName || 'Dominion',
+          directorPhoto: branding.directorPhoto || '',
+        },
+      });
+    } catch (_err) {
+      res.json({
+        success: true,
+        branding: {
+          businessName: 'Nexus ERP',
+          businessLogo: '',
+          primaryColor: '#1C64FF',
+          directorName: 'Dominion',
+          directorPhoto: '',
+        },
+      });
+    }
+  };
 }
 
 export const authController = new AuthController();

@@ -98,6 +98,16 @@ function getMemoryDb(): any {
   } catch (e) {}
   try {
     memoryDb.exec(`
+      ALTER TABLE business_settings ADD COLUMN primary_color TEXT DEFAULT '#1C64FF';
+    `);
+  } catch (e) {}
+  try {
+    memoryDb.exec(`
+      ALTER TABLE business_settings ADD COLUMN director_photo TEXT;
+    `);
+  } catch (e) {}
+  try {
+    memoryDb.exec(`
       ALTER TABLE business_settings ADD COLUMN website TEXT DEFAULT 'https://nexuserp.com';
     `);
   } catch (e) {}
@@ -301,6 +311,12 @@ export async function ensureDatabaseSchema(): Promise<void> {
         }
         if (!colNames.includes('director_name')) {
           await conn.query(`ALTER TABLE business_settings ADD COLUMN director_name VARCHAR(100) DEFAULT NULL AFTER business_name`);
+        }
+        if (!colNames.includes('primary_color')) {
+          await conn.query(`ALTER TABLE business_settings ADD COLUMN primary_color VARCHAR(20) NOT NULL DEFAULT '#1C64FF'`);
+        }
+        if (!colNames.includes('director_photo')) {
+          await conn.query(`ALTER TABLE business_settings ADD COLUMN director_photo LONGTEXT DEFAULT NULL`);
         }
         await conn.query(`ALTER TABLE business_settings MODIFY COLUMN business_logo LONGTEXT DEFAULT NULL`);
       }

@@ -35,6 +35,7 @@ interface DashboardShellProps {
   onLogout: () => void;
   activeNavItem: string;
   onSelectNavItem: (id: string) => void;
+  onUpdateUser?: (updated: Partial<User>) => void;
 }
 
 export const DashboardShell: React.FC<DashboardShellProps> = ({
@@ -42,6 +43,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
   onLogout,
   activeNavItem,
   onSelectNavItem,
+  onUpdateUser,
 }) => {
   const [isOpenMobileSidebar, setIsOpenMobileSidebar] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -63,15 +65,15 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
       let period: any = 'this_month';
       if (filters.dateRange === 'last_7' || filters.dateRange === '7D') period = 'last_7_days';
       else if (filters.dateRange === 'last_30' || filters.dateRange === '30D') period = 'last_30_days';
-      else if (filters.dateRange === 'last_12_months' || filters.dateRange === '12M') period = 'full_year';
+      else if (filters.dateRange === 'last_12_months' || filters.dateRange === '12M') period = 'last_12_months';
       else if (filters.dateRange === 'all') period = 'all';
       else if (filters.dateRange === 'custom') period = 'custom';
 
       const exportData = await FinanceApiService.fetchDashboardExportData({
         branch: filters.branch !== 'all' ? filters.branch : undefined,
         period,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
+        startDate: filters.dateRange === 'custom' ? filters.startDate : undefined,
+        endDate: filters.dateRange === 'custom' ? filters.endDate : undefined,
       });
 
       const { exportDashboardToExcel } = await import('../../utils/excelExportUtils');
@@ -159,6 +161,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                   <div className="lg:col-span-5 h-full">
                     <TopCustomersCard
                       branchFilter={filters.branch}
+                      filters={filters}
                       onNavigateToCrm={() => onSelectNavItem('crm')}
                     />
                   </div>
@@ -206,7 +209,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
             ) : isImportWizard ? (
               <ImportWizardPage />
             ) : isSettings ? (
-              <SettingsPage user={user} onLogout={onLogout} />
+              <SettingsPage user={user} onLogout={onLogout} onUpdateUser={onUpdateUser} />
             ) : (
               /* Sub-module View Container Shell */
               <div className="flex-1 bg-white border border-gray-200/80 rounded-2xl p-8 sm:p-14 flex flex-col items-center justify-center text-center shadow-2xs relative overflow-hidden min-h-[420px]">

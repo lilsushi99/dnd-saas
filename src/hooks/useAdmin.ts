@@ -47,7 +47,14 @@ export function useBranches() {
     return updated;
   };
 
-  return { branches, loading, error, refreshBranches: loadBranches, createBranch, updateBranch, toggleBranchStatus };
+  const deleteBranch = async (id: string) => {
+    await AdminApiService.deleteBranch(id);
+    setBranches((prev) => prev.filter((b) => b.id !== id));
+    window.dispatchEvent(new CustomEvent('nexus:refresh-branches'));
+    window.dispatchEvent(new CustomEvent('nexus:refresh-financials'));
+  };
+
+  return { branches, loading, error, refreshBranches: loadBranches, createBranch, updateBranch, toggleBranchStatus, deleteBranch };
 }
 
 export function useFacilities() {

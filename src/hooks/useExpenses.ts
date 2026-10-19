@@ -78,6 +78,7 @@ export function useExpenses(initialBranch: string = 'all') {
     try {
       const created = await ExpenseApiService.createExpense(payload);
       await loadExpenses();
+      window.dispatchEvent(new CustomEvent('nexus:refresh-financials'));
       return created;
     } catch (err: any) {
       throw err;
@@ -98,6 +99,7 @@ export function useExpenses(initialBranch: string = 'all') {
     try {
       const updated = await ExpenseApiService.updateExpense(id, payload);
       await loadExpenses();
+      window.dispatchEvent(new CustomEvent('nexus:refresh-financials'));
       return updated;
     } catch (err: any) {
       throw err;
@@ -108,6 +110,7 @@ export function useExpenses(initialBranch: string = 'all') {
     try {
       const success = await ExpenseApiService.deleteExpense(id);
       await loadExpenses();
+      window.dispatchEvent(new CustomEvent('nexus:refresh-financials'));
       return success;
     } catch (err: any) {
       throw err;

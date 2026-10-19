@@ -13,11 +13,12 @@ export class OperationsService {
 
   public async getSummaryMetrics(branch?: string, month?: string): Promise<DailyLoggerSummary> {
     const bookings = await this.getBookings(branch, month);
+    const qualifying = bookings.filter((b) => b.status !== 'Cancelled');
 
-    const monthlyRevenue = bookings.reduce((sum, b) => sum + b.amount, 0);
-    const totalBookings = bookings.length;
-    const activeBookings = bookings.filter((b) => b.status === 'Active').length;
-    const expiredBookings = bookings.filter((b) => b.status === 'Expired').length;
+    const monthlyRevenue = qualifying.reduce((sum, b) => sum + b.amount, 0);
+    const totalBookings = qualifying.length;
+    const activeBookings = qualifying.filter((b) => b.status === 'Active' || b.status === 'Expiring Soon').length;
+    const expiredBookings = qualifying.filter((b) => b.status === 'Expired').length;
 
     return {
       monthlyRevenue,

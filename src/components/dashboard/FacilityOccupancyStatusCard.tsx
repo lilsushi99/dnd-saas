@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AdminApiService } from '../../services/adminService';
-import { OperationsApiService } from '../../services/operationsService';
+import { FinanceApiService } from '../../services/financeService';
 import { DashboardFilters, Branch } from '../../types';
 
 interface FacilityOccupancyStatusCardProps {
@@ -31,84 +31,41 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
       ? filters.branch
       : branchFilter !== 'all'
       ? branchFilter
-      : activeBranchTab;
+      : undefined;
 
   const loadOccupancyData = () => {
     setLoading(true);
+    let period: string = 'all';
+    const selectedRange = filters?.dateRange || 'this_month';
+    if (selectedRange === 'last_7' || selectedRange === '7D') period = 'last_7_days';
+    else if (selectedRange === 'last_30' || selectedRange === '30D') period = 'last_30_days';
+    else if (selectedRange === 'this_month') period = 'this_month';
+    else if (selectedRange === 'last_12_months' || selectedRange === '12M') period = 'last_12_months';
+    else if (selectedRange === 'today') period = 'today';
+    else if (selectedRange === 'custom') period = 'custom';
+    else if (selectedRange === 'all') period = 'all';
+
     Promise.all([
-      AdminApiService.fetchFacilities(),
-      OperationsApiService.fetchBookings(),
+      FinanceApiService.fetchAnalytics({
+        branch: selectedBranch,
+        period: period as any,
+        startDate: selectedRange === 'custom' ? filters?.startDate : undefined,
+        endDate: selectedRange === 'custom' ? filters?.endDate : undefined,
+      }),
       AdminApiService.fetchBranches(),
     ])
-      .then(([dbFacs, bookingsData, branchesData]) => {
-        setDbBranches(branchesData || []);
-        const bookingsList = bookingsData.bookings || [];
-
-        // Determine reference date: use end date of selected period or today
-        const todayStr = new Date().toISOString().substring(0, 10);
-        let refDate = todayStr;
-        if (filters?.dateRange === 'custom' && filters.endDate) {
-          refDate = filters.endDate < todayStr ? filters.endDate : todayStr;
+      .then(([analytics, branchesData]) => {
+        setDbBranches((branchesData || []).filter((b) => b.status === 'Active'));
+        if (analytics.facilityOccupancy && analytics.facilityOccupancy.length > 0) {
+          setFacilities(analytics.facilityOccupancy);
+        } else {
+          setFacilities([]);
         }
-
-        // Map facilities
-        const items: FacilityOccupancyItem[] = dbFacs
-          .filter((f) => f.status === 'Active')
-          .map((f) => {
-            const fNameNorm = f.name.trim().toLowerCase();
-            const fBranchIdNorm = (f.branchId || '').trim().toLowerCase();
-            const fBranchNameNorm = (f.branchName || '').trim().toLowerCase();
-
-            // Count qualifying bookings that occupy on refDate
-            const occupyingBookings = bookingsList.filter((b) => {
-              if (b.status === 'Cancelled') return false;
-
-              // Check date interval occupation
-              const bDateStr = String(b.date).substring(0, 10);
-              const isHourly = b.durationUnit === 'Hour' || f.pricingBasis === 'Per Hour';
-              let occupies = false;
-              if (isHourly) {
-                occupies = bDateStr === refDate;
-              } else {
-                const days = Math.max(1, Number(b.daysCount) || 1);
-                const bStartDate = new Date(bDateStr + 'T00:00:00Z');
-                const bEndDate = new Date(bStartDate.getTime() + (days - 1) * 86400000);
-                const bEndStr = bEndDate.toISOString().substring(0, 10);
-                occupies = refDate >= bDateStr && refDate <= bEndStr;
-              }
-
-              if (!occupies) return false;
-
-              const bFacNorm = (b.facility || '').trim().toLowerCase();
-              const bBranchNorm = (b.branch || '').trim().toLowerCase();
-
-              const facMatch = bFacNorm === fNameNorm;
-              const branchMatch =
-                !bBranchNorm ||
-                !fBranchNameNorm ||
-                bBranchNorm === fBranchNameNorm ||
-                bBranchNorm === fBranchIdNorm;
-
-              return facMatch && branchMatch;
-            });
-
-            const facilityCapacity = Math.max(1, Number(f.capacity) || 1);
-            // Cap occupied count at permitted capacity to avoid exceeding 100% per unit
-            const occupiedCount = Math.min(occupyingBookings.length, facilityCapacity);
-
-            return {
-              id: f.id,
-              name: f.name,
-              branchId: f.branchId,
-              branchName: f.branchName || 'Main Branch',
-              occupied: occupiedCount,
-              capacity: facilityCapacity,
-            };
-          });
-
-        setFacilities(items);
       })
-      .catch((err) => console.error('Error fetching occupancy data:', err))
+      .catch((err) => {
+        console.error('Error fetching occupancy data:', err);
+        setFacilities([]);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -127,31 +84,13 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
     };
   }, [selectedBranch, filters?.dateRange, filters?.startDate, filters?.endDate, branchFilter]);
 
-  // Resolve selected branch against registered branches
-  let targetBranchId: string | null = null;
-  let targetBranchName: string | null = null;
-
-  if (selectedBranch && selectedBranch !== 'all') {
-    const selLower = selectedBranch.trim().toLowerCase();
-    const matched = dbBranches.find(
-      (b) => b.id.toLowerCase() === selLower || b.name.toLowerCase() === selLower
-    );
-    if (matched) {
-      targetBranchId = matched.id.toLowerCase();
-      targetBranchName = matched.name.toLowerCase();
-    } else {
-      targetBranchName = selLower;
-    }
-  }
-
   const filteredFacilities = facilities.filter((f) => {
-    if (!targetBranchId && !targetBranchName) return true;
+    if (selectedBranch && selectedBranch !== 'all') return true;
+    if (activeBranchTab === 'all') return true;
     const fId = (f.branchId || '').toLowerCase();
     const fName = (f.branchName || '').toLowerCase();
-
-    if (targetBranchId && fId === targetBranchId) return true;
-    if (targetBranchName && fName === targetBranchName) return true;
-    return false;
+    const tabLower = activeBranchTab.toLowerCase();
+    return fId === tabLower || fName === tabLower;
   });
 
   const totalOccupied = filteredFacilities.reduce((sum, item) => sum + item.occupied, 0);

@@ -68,14 +68,58 @@ export const ExpenseCategoriesPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete category "${name}"?`)) return;
+  // Delete Confirmation State
+  const [categoryToDelete, setCategoryToDelete] = useState<ExpenseCategory | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleOpenDelete = (cat: ExpenseCategory) => {
+    setCategoryToDelete(cat);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!categoryToDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
     try {
-      await ExpenseApiService.deleteCategory(id);
-      showToast('Category Deleted', `Category "${name}" removed successfully.`, 'success');
+      await ExpenseApiService.deleteCategory(categoryToDelete.id);
+      showToast('Category Deleted', `Category "${categoryToDelete.name}" removed successfully.`, 'success');
+      setCategoryToDelete(null);
       loadCategories();
     } catch (err: any) {
-      showToast('Error', err.message || 'Failed to delete category.', 'error');
+      setDeleteError(err.message || 'Failed to delete category.');
+      showToast('Cannot Delete Category', err.message || 'Category has dependencies and cannot be deleted.', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeactivateInstead = async () => {
+    if (!categoryToDelete) return;
+    try {
+      await ExpenseApiService.updateCategory(categoryToDelete.id, {
+        status: 'Inactive',
+      });
+      showToast('Category Deactivated', `Category "${categoryToDelete.name}" has been deactivated to preserve expense history.`, 'info');
+      setCategoryToDelete(null);
+      setDeleteError(null);
+      loadCategories();
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to deactivate category.', 'error');
+    }
+  };
+
+  const handleToggleStatus = async (cat: ExpenseCategory) => {
+    const newStatus = cat.status === 'Active' ? 'Inactive' : 'Active';
+    try {
+      await ExpenseApiService.updateCategory(cat.id, {
+        status: newStatus,
+      });
+      showToast('Status Updated', `Category "${cat.name}" is now ${newStatus}.`, newStatus === 'Active' ? 'success' : 'info');
+      loadCategories();
+    } catch (err: any) {
+      showToast('Error', err.message || 'Failed to update category status.', 'error');
     }
   };
 
@@ -268,21 +312,34 @@ export const ExpenseCategoriesPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-6 text-gray-500">{cat.createdDate || '—'}</td>
                     <td className="py-3.5 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleOpenEdit(cat)}
-                          className="px-2.5 py-1.5 bg-gray-100 hover:bg-blue-50 text-gray-700 hover:text-blue-600 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                          className="px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 border border-gray-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
                           title="Edit Category"
                         >
                           <i className="fa-solid fa-pen-to-square text-xs"></i>
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(cat.id, cat.name)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+                          onClick={() => handleToggleStatus(cat)}
+                          className={`px-2.5 py-1.5 text-xs font-medium border rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                            cat.status === 'Active'
+                              ? 'text-amber-700 hover:bg-amber-50 border-amber-200'
+                              : 'text-emerald-700 hover:bg-emerald-50 border-emerald-200'
+                          }`}
+                          title={cat.status === 'Active' ? 'Deactivate Category' : 'Activate Category'}
+                        >
+                          <i className={`fa-solid ${cat.status === 'Active' ? 'fa-ban' : 'fa-circle-check'} text-xs`}></i>
+                          {cat.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleOpenDelete(cat)}
+                          className="px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
                           title="Delete Category"
                         >
                           <i className="fa-solid fa-trash-can text-xs"></i>
+                          Delete
                         </button>
                       </div>
                     </td>

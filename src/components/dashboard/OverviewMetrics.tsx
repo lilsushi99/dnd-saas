@@ -27,7 +27,8 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
     if (selectedRange === 'last_7' || selectedRange === '7D') period = 'last_7_days';
     else if (selectedRange === 'last_30' || selectedRange === '30D') period = 'last_30_days';
     else if (selectedRange === 'this_month') period = 'this_month';
-    else if (selectedRange === 'last_12_months' || selectedRange === '12M') period = 'full_year';
+    else if (selectedRange === 'last_12_months' || selectedRange === '12M') period = 'last_12_months';
+    else if (selectedRange === 'full_year') period = 'full_year';
     else if (selectedRange === 'today') period = 'today';
     else if (selectedRange === 'custom') period = 'custom';
     else if (selectedRange === 'all') period = 'all';
@@ -35,8 +36,8 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
     FinanceApiService.fetchAnalytics({
       branch: selectedBranch !== 'all' ? selectedBranch : undefined,
       period: period as any,
-      startDate: filters?.startDate,
-      endDate: filters?.endDate,
+      startDate: selectedRange === 'custom' ? filters?.startDate : undefined,
+      endDate: selectedRange === 'custom' ? filters?.endDate : undefined,
     })
       .then((data) => {
         const rev = data.totalRevenue || 0;
@@ -55,7 +56,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
         setProfitMargin(margin);
         setTotalBookings(data.totalBookings || 0);
 
-        if (data.occupancyRate !== undefined && !isNaN(Number(data.occupancyRate))) {
+        if (data.occupancyRate !== undefined && data.occupancyRate !== null && !isNaN(Number(data.occupancyRate))) {
           setOccupancyRate(Number(data.occupancyRate));
           setHasCapacityData(true);
         } else {
@@ -94,14 +95,15 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
     return `₦${rounded.toLocaleString()}`;
   };
 
-  const getOccupancyStatus = (rate: number) => {
-    if (rate >= 100) return { label: 'Full', isPos: false };
-    if (rate >= 80) return { label: 'Nearly full', isPos: true };
-    if (rate > 0) return { label: 'Available', isPos: true };
-    return { label: 'No active bookings', isPos: true };
+  const getOccupancyStatus = (rate: number, hasData: boolean) => {
+    if (!hasData) return { label: 'No capacity data', isPos: false, isNeutral: true };
+    if (rate >= 100) return { label: 'Full', isPos: false, isNeutral: false };
+    if (rate >= 80) return { label: 'Nearly full', isPos: true, isNeutral: false };
+    if (rate > 0) return { label: 'Available', isPos: true, isNeutral: false };
+    return { label: 'No active bookings', isPos: false, isNeutral: true };
   };
 
-  const occStatus = getOccupancyStatus(occupancyRate);
+  const occStatus = getOccupancyStatus(occupancyRate, hasCapacityData);
 
   const metrics: (MetricCardData & { valueColor?: string })[] = [
     {
@@ -109,7 +111,8 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       title: 'Total Revenue',
       value: formatCurrency(revenue),
       change: revenue > 0 ? 'Recognized' : '₦0',
-      isPositive: true,
+      isPositive: revenue > 0,
+      isNeutral: revenue === 0,
       timeframe: 'qualifying bookings',
       iconClass: 'fa-solid fa-dollar-sign',
       iconBg: 'bg-blue-50',
@@ -120,7 +123,8 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       title: 'Operating Expenses',
       value: formatCurrency(expenses),
       change: expenses > 0 ? 'Recorded' : '₦0',
-      isPositive: expenses === 0,
+      isPositive: false,
+      isNeutral: true,
       timeframe: 'operating expenditures',
       iconClass: 'fa-solid fa-credit-card',
       iconBg: 'bg-slate-50',
@@ -136,8 +140,9 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
           : netProfit < 0
           ? 'text-rose-600'
           : 'text-gray-900',
-      change: `${profitMargin >= 0 ? '+' : ''}${profitMargin.toFixed(1)}%`,
-      isPositive: profitMargin >= 0,
+      change: `${netProfit > 0 ? '+' : ''}${profitMargin.toFixed(1)}%`,
+      isPositive: netProfit > 0,
+      isNeutral: netProfit === 0,
       timeframe: 'profit margin',
       iconClass: 'fa-solid fa-chart-pie',
       iconBg:
@@ -157,8 +162,9 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       id: 'total_bookings',
       title: 'Total Bookings',
       value: `${totalBookings.toLocaleString()}`,
-      change: totalBookings > 0 ? `${totalBookings} units` : '0',
-      isPositive: true,
+      change: totalBookings > 0 ? `${totalBookings} units` : '0 units',
+      isPositive: totalBookings > 0,
+      isNeutral: totalBookings === 0,
       timeframe: 'qualifying records',
       iconClass: 'fa-solid fa-calendar-check',
       iconBg: 'bg-indigo-50',
@@ -170,6 +176,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       value: hasCapacityData ? `${occupancyRate.toFixed(1)}%` : 'No Data',
       change: occStatus.label,
       isPositive: occStatus.isPos,
+      isNeutral: occStatus.isNeutral,
       timeframe: 'capacity utilization',
       iconClass: 'fa-solid fa-building',
       iconBg: 'bg-amber-50',
@@ -211,12 +218,20 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
           <div className="flex items-center gap-1.5 text-xs font-normal min-w-0">
             <span
               className={`inline-flex items-center gap-1 font-medium shrink-0 ${
-                card.isPositive ? 'text-emerald-600' : 'text-rose-600'
+                card.isNeutral
+                  ? 'text-gray-500'
+                  : card.isPositive
+                  ? 'text-emerald-600'
+                  : 'text-rose-600'
               }`}
             >
               <i
                 className={`fa-solid ${
-                  card.isPositive ? 'fa-arrow-up-right' : 'fa-arrow-down-right'
+                  card.isNeutral
+                    ? 'fa-minus'
+                    : card.isPositive
+                    ? 'fa-arrow-up-right'
+                    : 'fa-arrow-down-right'
                 } text-[10px]`}
               ></i>
               {card.change}

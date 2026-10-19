@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../../types';
+import { UserAvatar } from '../common/UserAvatar';
 
 interface TopNavbarProps {
   pageTitle: string;
@@ -187,13 +188,12 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             }}
             className="flex items-center gap-3 p-1 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group"
           >
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-semibold flex items-center justify-center text-xs shadow-xs group-hover:scale-105 transition-transform">
-              {user.name
-                .split(' ')
-                .map((n) => n[0])
-                .join('')
-                .substring(0, 2)}
-            </div>
+            <UserAvatar
+              name={user.name}
+              photoUrl={user.profilePhoto || user.avatar}
+              size="md"
+              className="group-hover:scale-105 transition-transform"
+            />
             <div className="hidden md:block text-left">
               <div className="text-xs font-semibold text-gray-900 leading-none">
                 {user.name}
@@ -208,12 +208,19 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           {/* User Menu Dropdown */}
           {showUserMenu && (
             <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg z-50 overflow-hidden font-sans animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="p-3.5 border-b border-gray-100 bg-gray-50/50">
-                <p className="text-xs font-semibold text-gray-900">{user.name}</p>
-                <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
-                <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-medium">
-                  <i className="fa-solid fa-building text-[9px]"></i>
-                  {user.organization}
+              <div className="p-3.5 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+                <UserAvatar
+                  name={user.name}
+                  photoUrl={user.profilePhoto || user.avatar}
+                  size="md"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-gray-900 truncate">{user.name}</p>
+                  <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
+                  <div className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-medium">
+                    <i className="fa-solid fa-building text-[9px]"></i>
+                    <span className="truncate">{user.organization}</span>
+                  </div>
                 </div>
               </div>
 

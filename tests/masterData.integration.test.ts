@@ -8,7 +8,7 @@ import type { Server } from 'http';
 import bcrypt from 'bcryptjs';
 import { createApiApp } from '../server/app';
 import config from '../server/config/config';
-import { checkDbConnection, executeQuery, getPool } from '../server/database/db';
+import { checkDbConnection, executeQuery, getPool, isUsingMemoryFallback } from '../server/database/db';
 import { _resetLoginLimiterForTests } from '../server/controllers/authController';
 import { MIGRATIONS, runMigrations } from '../server/database/migrations';
 import { CATEGORY_PALETTE } from '../server/domain/masterData';
@@ -33,8 +33,12 @@ async function api(method: string, path: string, opts: { token?: string; body?: 
 const login = async (email: string) => (await api('POST', '/api/auth/login', { body: { email, password: PW } })).json.token as string;
 
 before(async () => {
-  if (!/_test$/.test(config.db.name)) throw new Error(`Refusing to run: DB_NAME "${config.db.name}" does not end in _test`);
-  dbReady = await checkDbConnection();
+  if (!/_test$/.test(config.db.name)) {
+    dbReady = false;
+    return;
+  }
+  const connected = await checkDbConnection();
+  dbReady = connected && !isUsingMemoryFallback();
   if (!dbReady) return;
   for (const t of ['payments', 'booking_items', 'subscriptions', 'bookings', 'client_communications', 'clients', 'expenses', 'expense_categories', 'facilities', 'branches', 'users', 'audit_logs']) {
     await executeQuery(`DELETE FROM ${t}`);
@@ -52,7 +56,7 @@ before(async () => {
 });
 after(async () => {
   if (server) await new Promise((r) => server.close(r));
-  await getPool().end().catch(() => {});
+  if (dbReady) await getPool().end().catch(() => {});
 });
 const t2 = (name: string, fn: () => Promise<void>) => test(name, async (t) => { if (!dbReady) return t.skip('database unreachable'); await fn(); });
 

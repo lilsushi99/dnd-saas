@@ -4,6 +4,7 @@ import { insertWithGeneratedId } from '../database/ids';
 import { Branch, Facility, AdminUser, RolePermission, ImportSpreadsheetRow, ImportResultSummary } from '../../src/types';
 import { executeQuery, executeTransaction } from '../database/db';
 import { auditRepository } from './auditRepository';
+import { DEFAULT_ROLE_PERMISSIONS } from '../middleware/auth';
 
 export class AdminRepository {
   // --- BRANCHES ---
@@ -96,6 +97,60 @@ export class AdminRepository {
     return branch;
   }
 
+  public async countBranchDependencies(id: string, branchName: string): Promise<{
+    facilities: number;
+    bookings: number;
+    expenses: number;
+    users: number;
+    total: number;
+  }> {
+    const [facRows, bkRows, expRows, usrRows] = await Promise.all([
+      executeQuery<any>(`SELECT COUNT(*) AS cnt FROM facilities WHERE branch_id = ? OR LOWER(branch_name) = LOWER(?)`, [id, branchName]),
+      executeQuery<any>(`SELECT COUNT(*) AS cnt FROM bookings WHERE branch_id = ? OR LOWER(branch) = LOWER(?)`, [id, branchName]),
+      executeQuery<any>(`SELECT COUNT(*) AS cnt FROM expenses WHERE branch_id = ? OR LOWER(branch) = LOWER(?)`, [id, branchName]),
+      executeQuery<any>(`SELECT COUNT(*) AS cnt FROM users WHERE branch_id = ? OR LOWER(branch) = LOWER(?)`, [id, branchName]),
+    ]);
+    const facilities = Number(facRows[0]?.cnt || 0);
+    const bookings = Number(bkRows[0]?.cnt || 0);
+    const expenses = Number(expRows[0]?.cnt || 0);
+    const users = Number(usrRows[0]?.cnt || 0);
+    return {
+      facilities,
+      bookings,
+      expenses,
+      users,
+      total: facilities + bookings + expenses + users,
+    };
+  }
+
+  public async deleteBranch(id: string, actor = 'System'): Promise<boolean> {
+    const branch = await this.getBranchById(id);
+    if (!branch) return false;
+
+    const deps = await this.countBranchDependencies(id, branch.name);
+    if (deps.total > 0) {
+      const parts: string[] = [];
+      if (deps.facilities > 0) parts.push(`${deps.facilities} facilit${deps.facilities === 1 ? 'y' : 'ies'}`);
+      if (deps.bookings > 0) parts.push(`${deps.bookings} booking${deps.bookings === 1 ? '' : 's'}`);
+      if (deps.expenses > 0) parts.push(`${deps.expenses} expense${deps.expenses === 1 ? '' : 's'}`);
+      if (deps.users > 0) parts.push(`${deps.users} assigned user${deps.users === 1 ? '' : 's'}`);
+
+      throw conflict(
+        `"${branch.name}" has ${parts.join(', ')} and cannot be permanently deleted. Deactivate it instead to keep historical records intact.`
+      );
+    }
+
+    await executeQuery(`DELETE FROM branches WHERE id = ?`, [id]);
+    auditRepository.logAction({
+      user: actor,
+      action: 'DELETE_BRANCH',
+      entity: 'branches',
+      entityId: id,
+      previousValue: branch,
+    });
+    return true;
+  }
+
   // --- FACILITIES ---
   public async getFacilities(): Promise<Facility[]> {
     try {
@@ -119,12 +174,18 @@ export class AdminRepository {
     }
   }
 
-  private async countFacilityBookings(f: { name: string; branchName?: string }, id: string): Promise<number> {
-    const r = await executeQuery<any>(
-      `SELECT COUNT(*) AS cnt FROM bookings WHERE facility_id = ? OR (LOWER(facility) = LOWER(?) AND LOWER(branch) = LOWER(?))`,
-      [id, f.name, f.branchName || '']
-    );
-    return Number(r[0]?.cnt || 0);
+  private async countFacilityDependencies(f: { name: string; branchName?: string }, id: string): Promise<number> {
+    const [bk, sub] = await Promise.all([
+      executeQuery<any>(
+        `SELECT COUNT(*) AS cnt FROM bookings WHERE facility_id = ? OR (LOWER(facility) = LOWER(?) AND LOWER(branch) = LOWER(?))`,
+        [id, f.name, f.branchName || '']
+      ),
+      executeQuery<any>(
+        `SELECT COUNT(*) AS cnt FROM subscriptions WHERE facility_id = ? OR LOWER(facility_name) = LOWER(?)`,
+        [id, f.name]
+      ),
+    ]);
+    return Number(bk[0]?.cnt || 0) + Number(sub[0]?.cnt || 0);
   }
 
   public async createFacility(data: { name: string; branchId: string; defaultPrice?: number; capacity?: number; status?: 'Active' | 'Inactive'; pricingBasis?: 'Per Hour' | 'Per Day' }, actor = 'System'): Promise<Facility> {
@@ -167,8 +228,8 @@ export class AdminRepository {
       const b = await this.getBranchById(updates.branchId);
       if (!b) throw badRequest('Select a valid branch for this facility.');
       if (b.status !== 'Active') throw badRequest('Facilities can only be moved to an active branch.');
-      if ((await this.countFacilityBookings(current, id)) > 0) {
-        throw conflict('This facility has booking history and cannot be moved to another branch. Create a new facility there instead.');
+      if ((await this.countFacilityDependencies(current, id)) > 0) {
+        throw conflict('This facility has historical booking/subscription records and cannot be moved to another branch. Create a new facility there instead.');
       }
       targetBranch = { id: b.id, name: b.name };
     }
@@ -197,9 +258,9 @@ export class AdminRepository {
   public async deleteFacility(id: string, actor = 'System'): Promise<boolean> {
     const deleted = (await this.getFacilities()).find((f) => f.id === id);
     if (!deleted) return false;
-    const n = await this.countFacilityBookings(deleted, id);
+    const n = await this.countFacilityDependencies(deleted, id);
     if (n > 0) {
-      throw conflict(`"${deleted.name}" has ${n} booking${n === 1 ? '' : 's'} and cannot be deleted. Deactivate it instead to keep your history intact.`);
+      throw conflict(`"${deleted.name}" has ${n} historical booking/subscription record${n === 1 ? '' : 's'} and cannot be deleted. Deactivate it instead to keep your history intact.`);
     }
     await executeQuery(`DELETE FROM facilities WHERE id = ?`, [id]);
     auditRepository.logAction({ user: actor, action: 'DELETE_FACILITY', entity: 'facilities', entityId: id, previousValue: deleted });
@@ -210,7 +271,7 @@ export class AdminRepository {
   public async getUsers(): Promise<AdminUser[]> {
     try {
       const rows = await executeQuery<any>(
-        `SELECT id, name, email, role, branch, status, created_at as createdAt FROM users ORDER BY created_at DESC`
+        `SELECT id, name, email, role, branch, branch_id as branchId, profile_photo as profilePhoto, status, created_at as createdAt FROM users ORDER BY created_at DESC`
       );
       return rows.map((r) => ({
         id: r.id,
@@ -218,6 +279,8 @@ export class AdminRepository {
         email: r.email,
         role: r.role,
         branch: r.branch || 'All Branches',
+        branchId: r.branchId || null,
+        profilePhoto: r.profilePhoto || null,
         status: (r.status || 'Active') as 'Active' | 'Inactive',
         createdAt: r.createdAt ? String(r.createdAt).substring(0, 10) : new Date().toISOString().split('T')[0],
       }));
@@ -227,72 +290,217 @@ export class AdminRepository {
     }
   }
 
-  public async createUser(data: Omit<AdminUser, 'id' | 'createdAt'>): Promise<AdminUser> {
-    const users = await this.getUsers();
+  private async assertEmailFree(email: string, exceptId?: string) {
+    const dup = await executeQuery<any>(`SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND id <> ? LIMIT 1`, [email, exceptId || '']);
+    if (dup.length > 0) throw conflict(`A user with email "${email}" already exists.`);
+  }
+
+  private async resolveBranchInfo(branchNameOrId?: string): Promise<{ branchId: string | null; branchName: string }> {
+    if (!branchNameOrId || branchNameOrId.trim() === '' || branchNameOrId.trim().toLowerCase() === 'all branches') {
+      return { branchId: null, branchName: 'All Branches' };
+    }
+    const b = branchNameOrId.trim();
+    const rows = await executeQuery<any>(`SELECT id, name FROM branches WHERE id = ? OR LOWER(name) = LOWER(?) LIMIT 1`, [b, b]);
+    if (rows && rows.length > 0) {
+      return { branchId: rows[0].id, branchName: rows[0].name };
+    }
+    return { branchId: null, branchName: b };
+  }
+
+  public async createUser(data: Omit<AdminUser, 'id' | 'createdAt'>, actor = 'System'): Promise<AdminUser> {
+    const name = cleanText(data?.name, { label: 'User name', min: 2, max: 100, required: true })!;
+    const email = cleanText(data?.email, { label: 'Email', min: 5, max: 150, required: true })!.toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw badRequest('Please enter a valid work email address.');
+    }
+    await this.assertEmailFree(email);
+
+    const validRoles = ['Director', 'Manager', 'Receptionist', 'Accountant'];
+    const role = (validRoles.includes(data?.role) ? data.role : 'Manager') as AdminUser['role'];
+    const status = cleanStatus(data?.status) ?? 'Active';
+    const { branchId, branchName } = await this.resolveBranchInfo(data?.branch);
+    const createdAt = new Date().toISOString().split('T')[0];
+
+    const id = await insertWithGeneratedId('USR', 'users', async (newId) => {
+      await executeQuery(
+        `INSERT INTO users (id, name, email, phone, password_hash, role, branch_id, branch, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newId,
+          name,
+          email,
+          null,
+          '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vj.G8F3s9a',
+          role,
+          branchId,
+          branchName,
+          status,
+          createdAt,
+        ]
+      );
+    });
+
     const newUser: AdminUser = {
-      id: `USR-00${users.length + 1}`,
-      ...data,
-      createdAt: new Date().toISOString().split('T')[0],
+      id,
+      name,
+      email,
+      role,
+      branch: branchName,
+      branchId,
+      status,
+      createdAt,
     };
 
-    await executeQuery(
-      `INSERT INTO users (id, name, email, phone, password_hash, role, branch, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        newUser.id,
-        newUser.name,
-        newUser.email,
-        null,
-        '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vj.G8F3s9a',
-        newUser.role,
-        newUser.branch,
-        newUser.status,
-        newUser.createdAt,
-      ]
-    );
-
     auditRepository.logAction({
-      user: 'System Admin',
+      user: actor,
       action: 'CREATE_USER',
       entity: 'users',
-      entityId: newUser.id,
+      entityId: id,
       newValue: newUser,
     });
 
     return newUser;
   }
 
-  public async updateUser(id: string, updates: Partial<AdminUser>): Promise<AdminUser | null> {
+  public async updateUser(
+    id: string,
+    updates: Partial<AdminUser>,
+    actor = 'System',
+    actorId?: string
+  ): Promise<AdminUser | null> {
+    const currentRows = await executeQuery<any>(
+      `SELECT id, name, email, role, branch, branch_id AS branchId, status FROM users WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    const current = currentRows[0];
+    if (!current) return null;
+
+    let newName = current.name;
+    if (updates.name !== undefined) {
+      newName = cleanText(updates.name, { label: 'User name', min: 2, max: 100, required: true })!;
+    }
+
+    let newEmail = current.email;
+    if (updates.email !== undefined) {
+      newEmail = cleanText(updates.email, { label: 'Email', min: 5, max: 150, required: true })!.toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+        throw badRequest('Please enter a valid work email address.');
+      }
+      if (newEmail !== current.email.toLowerCase()) {
+        await this.assertEmailFree(newEmail, id);
+      }
+    }
+
+    let newRole = current.role;
+    if (updates.role !== undefined) {
+      const validRoles = ['Director', 'Manager', 'Receptionist', 'Accountant'];
+      if (!validRoles.includes(updates.role)) throw badRequest('Invalid role specified.');
+      newRole = updates.role;
+    }
+
+    let newStatus = current.status;
+    if (updates.status !== undefined) {
+      newStatus = cleanStatus(updates.status) ?? current.status;
+    }
+
+    // Safety checks on deactivation and demotion
+    if (newStatus === 'Inactive' && current.status === 'Active') {
+      if (actorId && actorId === id) {
+        throw badRequest('You cannot deactivate your own account.');
+      }
+      if (current.role === 'Director') {
+        const activeDirs = await executeQuery<any>(
+          `SELECT COUNT(*) AS cnt FROM users WHERE role = 'Director' AND status = 'Active'`
+        );
+        if (Number(activeDirs[0]?.cnt || 0) <= 1) {
+          throw badRequest('Cannot deactivate the last active Director account. Doing so would lock out the organization.');
+        }
+      }
+    }
+
+    if (newRole !== 'Director' && current.role === 'Director' && current.status === 'Active') {
+      const activeDirs = await executeQuery<any>(
+        `SELECT COUNT(*) AS cnt FROM users WHERE role = 'Director' AND status = 'Active'`
+      );
+      if (Number(activeDirs[0]?.cnt || 0) <= 1) {
+        throw badRequest('Cannot reassign the last active Director account. Doing so would lock out the organization.');
+      }
+    }
+
+    let branchId = current.branchId;
+    let branchName = current.branch;
+    if (updates.branch !== undefined) {
+      const resolved = await this.resolveBranchInfo(updates.branch);
+      branchId = resolved.branchId;
+      branchName = resolved.branchName;
+    }
+
     await executeQuery(
-      `UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), role = COALESCE(?, role),
-       branch = COALESCE(?, branch), status = COALESCE(?, status) WHERE id = ?`,
-      [updates.name || null, updates.email || null, updates.role || null, updates.branch || null, updates.status || null, id]
+      `UPDATE users SET name = ?, email = ?, role = ?, branch_id = ?, branch = ?, status = ? WHERE id = ?`,
+      [newName, newEmail, newRole, branchId, branchName, newStatus, id]
     );
 
-    const users = await this.getUsers();
-    const updated = users.find((u) => u.id === id);
-    if (updated) {
-      auditRepository.logAction({
-        user: 'System Admin',
-        action: 'UPDATE_USER',
-        entity: 'users',
-        entityId: id,
-        newValue: updated,
-      });
-    }
-    return updated || null;
-  }
-
-  public async toggleUserStatus(id: string): Promise<AdminUser | null> {
-    const users = await this.getUsers();
-    const user = users.find((u) => u.id === id);
-    if (!user) return null;
-
-    const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
-    await executeQuery(`UPDATE users SET status = ? WHERE id = ?`, [newStatus, id]);
+    const updated: AdminUser = {
+      id,
+      name: newName,
+      email: newEmail,
+      role: newRole,
+      branch: branchName,
+      branchId,
+      status: newStatus,
+      createdAt: current.created_at ? String(current.created_at).substring(0, 10) : new Date().toISOString().split('T')[0],
+    };
 
     auditRepository.logAction({
-      user: 'System Admin',
+      user: actor,
+      action: 'UPDATE_USER',
+      entity: 'users',
+      entityId: id,
+      previousValue: current,
+      newValue: updated,
+    });
+
+    return updated;
+  }
+
+  public async toggleUserStatus(id: string, actor = 'System', actorId?: string): Promise<AdminUser | null> {
+    const currentRows = await executeQuery<any>(
+      `SELECT id, name, email, role, branch, branch_id AS branchId, status FROM users WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    const user = currentRows[0];
+    if (!user) return null;
+
+    if (actorId && actorId === id) {
+      throw badRequest('You cannot deactivate your own account.');
+    }
+
+    const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
+
+    if (user.role === 'Director' && newStatus === 'Inactive') {
+      const activeDirs = await executeQuery<any>(
+        `SELECT COUNT(*) AS cnt FROM users WHERE role = 'Director' AND status = 'Active'`
+      );
+      if (Number(activeDirs[0]?.cnt || 0) <= 1) {
+        throw badRequest('Cannot deactivate the last active Director account. Doing so would lock out the organization.');
+      }
+    }
+
+    await executeQuery(`UPDATE users SET status = ? WHERE id = ?`, [newStatus, id]);
+
+    const updated: AdminUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      branch: user.branch || 'All Branches',
+      branchId: user.branchId || null,
+      status: newStatus,
+      createdAt: user.created_at ? String(user.created_at).substring(0, 10) : new Date().toISOString().split('T')[0],
+    };
+
+    auditRepository.logAction({
+      user: actor,
       action: 'TOGGLE_USER_STATUS',
       entity: 'users',
       entityId: id,
@@ -300,39 +508,57 @@ export class AdminRepository {
       newValue: { status: newStatus },
     });
 
-    user.status = newStatus;
-    return user;
+    return updated;
   }
 
   public async getRolesPermissions(): Promise<RolePermission[]> {
     try {
+      const STANDARD_ROLES: Array<'Director' | 'Manager' | 'Receptionist' | 'Accountant'> = ['Director', 'Manager', 'Receptionist', 'Accountant'];
       const rows = await executeQuery<any>(`SELECT role, permissions FROM user_roles_permissions`);
-      return rows.map((r) => {
+      const map = new Map<string, any>();
+      for (const r of rows) {
         let perms = r.permissions;
         if (typeof perms === 'string') {
           try { perms = JSON.parse(perms); } catch (e) {}
         }
-        return {
-          role: r.role,
-          permissions: perms || { dashboard: true, crm: true, dailyLogger: true, facilities: true, finance: true, admin: false },
-        };
-      });
+        map.set(r.role, perms);
+      }
+
+      const result: RolePermission[] = [];
+      for (const role of STANDARD_ROLES) {
+        let perms = map.get(role);
+        if (!perms) {
+          perms = { ...DEFAULT_ROLE_PERMISSIONS[role] };
+          await executeQuery(`INSERT INTO user_roles_permissions (role, permissions) VALUES (?, ?)`, [role, JSON.stringify(perms)]).catch(() => {});
+        }
+        result.push({
+          role,
+          permissions: perms,
+        });
+      }
+      return result;
     } catch (err) {
       console.error('Error fetching roles permissions:', err);
       throw err;
     }
   }
 
-  public async updateRolePermissions(role: 'Director' | 'Manager' | 'Receptionist' | 'Accountant', permissions: RolePermission['permissions']): Promise<RolePermission | null> {
+  public async updateRolePermissions(
+    role: 'Director' | 'Manager' | 'Receptionist' | 'Accountant',
+    permissions: RolePermission['permissions'],
+    actor = 'System'
+  ): Promise<RolePermission | null> {
     const jsonStr = JSON.stringify(permissions);
 
-    await executeQuery(
-      `INSERT INTO user_roles_permissions (role, permissions) VALUES (?, ?) ON DUPLICATE KEY UPDATE permissions = VALUES(permissions)`,
-      [role, jsonStr]
-    );
+    const existing = await executeQuery<any>(`SELECT id, permissions FROM user_roles_permissions WHERE role = ? LIMIT 1`, [role]);
+    if (existing && existing.length > 0) {
+      await executeQuery(`UPDATE user_roles_permissions SET permissions = ? WHERE role = ?`, [jsonStr, role]);
+    } else {
+      await executeQuery(`INSERT INTO user_roles_permissions (role, permissions) VALUES (?, ?)`, [role, jsonStr]);
+    }
 
     auditRepository.logAction({
-      user: 'System Admin',
+      user: actor,
       action: 'UPDATE_ROLE_PERMISSIONS',
       entity: 'user_roles_permissions',
       entityId: role,

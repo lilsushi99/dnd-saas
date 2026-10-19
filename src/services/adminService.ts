@@ -32,6 +32,12 @@ export class AdminApiService {
     });
   }
 
+  public static async deleteBranch(id: string): Promise<void> {
+    await this.request<void>(`/api/admin/branches/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // --- FACILITIES ---
   public static async fetchFacilities(): Promise<Facility[]> {
     return this.request<Facility[]>('/api/admin/facilities');
@@ -118,7 +124,8 @@ export class AdminApiService {
   // --- FILE UPLOADS ---
   public static async uploadFile(
     file: File,
-    entityType: 'logo' | 'profile_photo' | 'document' = 'logo'
+    entityType: 'logo' | 'profile_photo' | 'director_photo' | 'document' = 'logo',
+    userId?: string
   ): Promise<{ url: string; fileName: string }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -133,6 +140,7 @@ export class AdminApiService {
               fileSize: file.size,
               entityType,
               fileData: base64Data,
+              userId,
             }),
           });
           resolve({ url: data.data.url, fileName: data.data.fileName });

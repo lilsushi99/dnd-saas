@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import config from './config/config';
 import authRouter from './routes/authRoutes';
 import operationsRouter from './routes/operationsRoutes';
@@ -16,6 +17,10 @@ export function createApiApp() {
   app.disable('x-powered-by');
   app.use(express.json({ limit: '20mb' }));
   app.use(express.urlencoded({ limit: '20mb', extended: true }));
+
+  // Static uploaded business branding, logos, and user avatars
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
   app.use('/api', sanitizeServerErrors);
 
   app.use('/api/auth', authRouter);

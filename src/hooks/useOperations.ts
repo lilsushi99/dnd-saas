@@ -73,6 +73,7 @@ export function useOperations(branchFilter: string = 'all') {
     try {
       const created = await OperationsApiService.createBooking(newBooking);
       await loadData();
+      window.dispatchEvent(new CustomEvent('nexus:refresh-financials'));
       return created;
     } catch (err: any) {
       console.error('Error creating booking:', err.message);
@@ -84,6 +85,7 @@ export function useOperations(branchFilter: string = 'all') {
     try {
       const updated = await OperationsApiService.updateBooking(id, updatedFields);
       await loadData();
+      window.dispatchEvent(new CustomEvent('nexus:refresh-financials'));
       return updated;
     } catch (err: any) {
       console.error('Error updating booking:', err.message);

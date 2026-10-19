@@ -16,6 +16,7 @@ router.get('/branches', canReadMasterData, controller.getBranches);
 router.post('/branches', admin, controller.createBranch);
 router.put('/branches/:id', admin, controller.updateBranch);
 router.patch('/branches/:id/toggle-status', admin, controller.toggleBranchStatus);
+router.delete('/branches/:id', admin, controller.deleteBranch);
 
 // Facilities routes
 router.get('/facilities', canReadMasterData, controller.getFacilities);
