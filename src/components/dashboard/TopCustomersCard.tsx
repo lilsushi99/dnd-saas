@@ -16,21 +16,24 @@ export const TopCustomersCard: React.FC<TopCustomersCardProps> = ({
   const [sortBy, setSortBy] = useState<'revenue' | 'frequency'>('revenue');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedBranch = filters?.branch && filters.branch !== 'all' ? filters.branch : branchFilter;
 
   const loadCustomers = () => {
     setLoading(true);
+    setError(null);
     CustomerApiService.fetchCustomers({
       branch: selectedBranch !== 'all' ? selectedBranch : undefined,
       sort: sortBy === 'revenue' ? 'revenue_desc' : 'visits_desc',
     })
       .then((data) => {
         setCustomers(data.customers || []);
+        setError(null);
       })
       .catch((err) => {
         console.error('Failed to load top customers:', err);
-        setCustomers([]);
+        setError(err.message || 'Failed to load top customers');
       })
       .finally(() => {
         setLoading(false);
@@ -85,7 +88,21 @@ export const TopCustomersCard: React.FC<TopCustomersCardProps> = ({
 
       {/* Ranked Customer List */}
       <div className="space-y-2.5 flex-1 overflow-y-auto pr-1">
-        {loading ? (
+        {error ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-amber-50/60 border border-amber-200/70 rounded-xl">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-1.5">
+              <i className="fa-solid fa-triangle-exclamation text-xs"></i>
+            </div>
+            <p className="text-xs font-semibold text-gray-800 mb-0.5">{error}</p>
+            <p className="text-[11px] text-gray-500 mb-2.5">Customers could not be loaded for this branch filter.</p>
+            <button
+              onClick={loadCustomers}
+              className="px-3 py-1 bg-white border border-amber-300 rounded-lg text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        ) : loading && customers.length === 0 ? (
           <div className="h-full flex items-center justify-center text-xs text-gray-400">
             <i className="fa-solid fa-circle-notch fa-spin mr-2"></i> Loading customers...
           </div>

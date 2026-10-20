@@ -174,10 +174,31 @@ export interface BranchRef { id: string; name: string; }
 /** Exact id/name match (case-insensitive). The previous fuzzy substring matching mixed up similarly named branches. */
 export function resolveBranch(selected: string | undefined | null, branches: BranchRef[]): BranchRef | null {
   const s = String(selected ?? '').trim().toLowerCase();
-  if (!s || s === 'all' || s === 'compare') return null;
+  if (
+    !s ||
+    s === 'all' ||
+    s === 'all branches' ||
+    s === 'both branches' ||
+    s === 'multiple' ||
+    s === 'compare' ||
+    s === 'global'
+  ) {
+    return null;
+  }
   const found = branches.find((b) => b.id.toLowerCase() === s || b.name.toLowerCase() === s);
-  if (!found) throw new Error(`Unknown branch: ${selected}`);
-  return found;
+  if (found) return found;
+
+  // Secondary match: normalize spaces and check aliases
+  const normalized = s.replace(/[^a-z0-9]/g, '');
+  const fallback = branches.find((b) => {
+    const bIdNorm = b.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const bNameNorm = b.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return bIdNorm === normalized || bNameNorm === normalized;
+  });
+  if (fallback) return fallback;
+
+  // If a branch is requested that doesn't exist, throw an error to prevent silent fallbacks or unauthorized access.
+  throw new Error(`Unrecognized branch filter: "${selected}". Exact match required.`);
 }
 
 export function recordBelongsToBranch(

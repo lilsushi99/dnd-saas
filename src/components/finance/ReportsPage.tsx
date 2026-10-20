@@ -35,6 +35,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
     setCustomDates,
     branch,
     setBranch,
+    refresh,
   } = useFinanceReports(branchFilter);
 
   const [dbBranches, setDbBranches] = useState<Branch[]>([]);
@@ -301,9 +302,17 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ branchFilter = 'all' }
           <p className="text-xs font-semibold text-gray-500 mt-3">Compiling financial analytics & ledger calculations...</p>
         </div>
       ) : error ? (
-        <div className="p-8 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs font-semibold text-center">
-          <i className="fa-solid fa-triangle-exclamation text-xl mb-1 block"></i>
-          {error}
+        <div className="p-8 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs font-semibold text-center flex flex-col items-center justify-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <i className="fa-solid fa-triangle-exclamation text-xl"></i>
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => refresh()}
+            className="mt-1 px-3 py-1 bg-white border border-red-300 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
         </div>
       ) : !analytics ? (
         <div className="p-12 text-center text-gray-500 text-xs font-semibold">No data available.</div>

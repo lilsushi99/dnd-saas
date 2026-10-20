@@ -102,7 +102,7 @@ export class AuthController {
       }
 
       failures.delete(key);
-      await executeQuery(`UPDATE users SET last_login = NOW() WHERE id = ?`, [user.id]);
+      await executeQuery(`UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?`, [user.id]);
       const permissions = await loadPermissionsForRole(user.role);
 
       auditRepository.logAction({

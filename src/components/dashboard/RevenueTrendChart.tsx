@@ -32,6 +32,8 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
   >([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     AdminApiService.fetchBranches()
@@ -50,6 +52,8 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
   }, [branchFilter]);
 
   const loadChartData = () => {
+    setLoading(true);
+    setError(null);
     let period = 'last_30_days';
     if (timeframe === '7D') period = 'last_7_days';
     else if (timeframe === '30D') period = 'last_30_days';
@@ -80,12 +84,14 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
         } else {
           setChartData([]);
         }
+        setError(null);
       })
       .catch((err) => {
         console.error('Failed to load revenue trend chart:', err);
-        setChartData([]);
-        setTotalRevenue(0);
-        setTotalExpenses(0);
+        setError(err.message || 'Failed to load revenue trend chart');
+      })
+      .finally(() => {
+        setLoading(false);
       });
   };
 
@@ -286,7 +292,26 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ branchFilt
 
       {/* Chart Canvas */}
       <div className="h-[250px] w-full min-h-[220px]">
-        {chartData.length === 0 ? (
+        {error ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-amber-50/60 border border-amber-200/80 rounded-xl">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-2">
+              <i className="fa-solid fa-triangle-exclamation text-xs"></i>
+            </div>
+            <p className="text-xs font-semibold text-gray-800 mb-0.5">{error}</p>
+            <p className="text-[11px] text-gray-500 mb-2.5">Data could not be refreshed for this branch selection.</p>
+            <button
+              onClick={loadChartData}
+              className="px-3 py-1 bg-white border border-amber-300 rounded-lg text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        ) : loading && chartData.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-gray-50/50 rounded-xl">
+            <i className="fa-solid fa-circle-notch fa-spin text-blue-600 text-lg mb-2"></i>
+            <p className="text-xs text-gray-500">Loading revenue metrics...</p>
+          </div>
+        ) : chartData.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-gray-50 rounded-xl">
             <p className="text-xs font-normal text-gray-500">No Revenue Data in Timeframe</p>
           </div>

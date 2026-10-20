@@ -40,7 +40,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
   const formatTimeAgo = (dateStr: string) => {
     try {
-      const diffMs = Date.now() - new Date(dateStr).getTime();
+      if (!dateStr) return '';
+      const normalizedStr = dateStr.includes(' ') && !dateStr.includes('T') ? dateStr.replace(' ', 'T') : dateStr;
+      const diffMs = Date.now() - new Date(normalizedStr).getTime();
       if (isNaN(diffMs)) return dateStr;
       const mins = Math.floor(diffMs / 60000);
       if (mins < 1) return 'Just now';
@@ -75,20 +77,22 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   const loadNotifications = async () => {
     try {
       const items = await OperationsApiService.fetchNotifications();
-      setNotifications(
-        items.map((n: any) => ({
-          id: String(n.id),
-          title: n.title,
-          message: n.message,
-          time: formatTimeAgo(n.createdAt),
-          type: n.type || 'info',
-          icon: getNotificationIcon(n.title, n.type),
-          read: Boolean(n.read),
-          targetNav: getTargetNav(n.title),
-        }))
-      );
+      if (Array.isArray(items)) {
+        setNotifications(
+          items.map((n: any) => ({
+            id: String(n.id),
+            title: n.title,
+            message: n.message,
+            time: formatTimeAgo(n.createdAt),
+            type: n.type || 'info',
+            icon: getNotificationIcon(n.title, n.type),
+            read: Boolean(n.read),
+            targetNav: getTargetNav(n.title),
+          }))
+        );
+      }
     } catch {
-      // Non-fatal: notifications fail safely without breaking UI
+      // Non-fatal: keep existing notifications on transient error rather than clearing
     }
   };
 
@@ -100,12 +104,21 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
     };
 
     window.addEventListener('nexus:refresh-financials', onRefresh);
+    window.addEventListener('nexus:refresh-notifications', onRefresh);
+    window.addEventListener('nexus:refresh-bookings', onRefresh);
     window.addEventListener('focus', onRefresh);
-    const interval = setInterval(loadNotifications, 60000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') onRefresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    const interval = setInterval(loadNotifications, 45000);
 
     return () => {
       window.removeEventListener('nexus:refresh-financials', onRefresh);
+      window.removeEventListener('nexus:refresh-notifications', onRefresh);
+      window.removeEventListener('nexus:refresh-bookings', onRefresh);
       window.removeEventListener('focus', onRefresh);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       clearInterval(interval);
     };
   }, []);

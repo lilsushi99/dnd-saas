@@ -30,11 +30,11 @@ export class ExpenseService {
     try {
       const { executeQuery } = await import('../database/db');
       await executeQuery(
-        `INSERT INTO system_notifications (title, message, type, is_read, created_at) VALUES (?, ?, 'info', 0, NOW())`,
+        `INSERT INTO system_notifications (title, message, type, is_read, created_at) VALUES (?, ?, 'info', 0, CURRENT_TIMESTAMP)`,
         ['Expense Recorded', `Expense of ₦${Number(created.amount || 0).toLocaleString()} recorded for ${created.name}.`]
       );
-    } catch {
-      // Non-fatal
+    } catch (e: any) {
+      console.warn('Could not record expense notification:', e?.message);
     }
     return created;
   }

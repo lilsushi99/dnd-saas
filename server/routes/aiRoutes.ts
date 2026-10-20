@@ -192,7 +192,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     // Save user message to MySQL
     const userMsgId = `MSG-USR-${Date.now()}`;
     await executeQuery(
-      `INSERT INTO ai_messages (id, conversation_id, sender, text, timestamp) VALUES (?, 'default', 'user', ?, NOW())`,
+      `INSERT INTO ai_messages (id, conversation_id, sender, text, timestamp) VALUES (?, 'default', 'user', ?, CURRENT_TIMESTAMP)`,
       [userMsgId, prompt]
     );
 
@@ -246,7 +246,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     // Save assistant message to MySQL (even if error response, so history is preserved)
     const assistantMsgId = `MSG-AST-${Date.now()}`;
     await executeQuery(
-      `INSERT INTO ai_messages (id, conversation_id, sender, text, timestamp) VALUES (?, 'default', 'assistant', ?, NOW())`,
+      `INSERT INTO ai_messages (id, conversation_id, sender, text, timestamp) VALUES (?, 'default', 'assistant', ?, CURRENT_TIMESTAMP)`,
       [assistantMsgId, replyText]
     );
 

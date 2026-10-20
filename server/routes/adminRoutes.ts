@@ -9,7 +9,7 @@ router.use(authenticate);
 
 const admin = requirePermission('administration');
 // Branch/facility lists feed selectors across modules, so any signed-in module user may read them.
-const canReadMasterData = requirePermission('administration', 'dashboard', 'dailyLogger', 'facilityRecords', 'crm', 'expenses', 'reports');
+const canReadMasterData = requirePermission('administration', 'dashboard', 'dailyLogger', 'facilityRecords', 'crm', 'expenses', 'reports', 'settings');
 
 // Branches routes
 router.get('/branches', canReadMasterData, controller.getBranches);

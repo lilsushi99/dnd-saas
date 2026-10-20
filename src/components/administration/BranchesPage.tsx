@@ -12,7 +12,7 @@ const statusOptions: SelectOption[] = [
 ];
 
 export const BranchesPage: React.FC = () => {
-  const { branches, loading, error, createBranch, updateBranch, toggleBranchStatus, deleteBranch } = useBranches();
+  const { branches, loading, error, refreshBranches, createBranch, updateBranch, toggleBranchStatus, deleteBranch } = useBranches();
   const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Inactive'>('all');
@@ -199,9 +199,17 @@ export const BranchesPage: React.FC = () => {
             Loading branch entries...
           </div>
         ) : error ? (
-          <div className="p-12 text-center text-red-500 text-xs">
-            <i className="fa-solid fa-triangle-exclamation text-lg mb-2 block"></i>
-            {error}
+          <div className="p-12 text-center text-red-500 text-xs flex flex-col items-center justify-center gap-2">
+            <div className="flex items-center gap-2">
+              <i className="fa-solid fa-triangle-exclamation text-lg"></i>
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => refreshBranches()}
+              className="mt-1 px-3 py-1 bg-white border border-red-300 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
           </div>
         ) : filteredBranches.length === 0 ? (
           <div className="p-12 text-center text-gray-400 text-xs">

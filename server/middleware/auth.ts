@@ -69,8 +69,8 @@ export function normalizePermissions(raw: unknown): PermissionMap {
 }
 
 export async function loadPermissionsForRole(role: string): Promise<PermissionMap> {
-  // The Director role is always fully privileged so a bad permission edit can never lock out every administrator.
-  if (role === 'Director') return { ...DEFAULT_ROLE_PERMISSIONS.Director };
+  // Director and System Administrator roles are always fully privileged so a bad permission edit can never lock out administrators.
+  if (role === 'Director' || role === 'System Administrator') return { ...DEFAULT_ROLE_PERMISSIONS.Director };
   const rows = await executeQuery<any>(`SELECT permissions FROM user_roles_permissions WHERE role = ? LIMIT 1`, [role]);
   if (!rows || rows.length === 0) return emptyPermissions();
   return normalizePermissions(rows[0].permissions);
@@ -168,6 +168,11 @@ export function requirePermission(...keys: PermissionKey[]) {
       res.status(401).json({ success: false, error: 'Authentication required.', message: 'Authentication required.' });
       return;
     }
+    // Super-admin / Director roles have unrestricted privileges across all modules
+    if (user.role === 'Director' || user.role === 'System Administrator') {
+      next();
+      return;
+    }
     if (keys.some((k) => user.permissions[k] === true)) {
       next();
       return;
@@ -190,7 +195,7 @@ export function requireRole(...roles: string[]) {
 function matchesScope(value: unknown, scope: { id: string | null; name: string }): boolean {
   if (value === undefined || value === null || value === '') return true;
   const v = String(value).trim().toLowerCase();
-  if (v === 'all') return true;
+  if (v === 'all' || v === 'all branches' || v === 'both branches' || v === 'multiple') return true;
   if (scope.name && v === scope.name.toLowerCase()) return true;
   if (scope.id && v === scope.id.toLowerCase()) return true;
   return false;
@@ -210,7 +215,14 @@ export function enforceBranchScope(req: Request, res: Response, next: NextFuncti
   }
 
   const requested = req.query.branch;
-  if (requested !== undefined && requested !== 'all' && requested !== '' && !matchesScope(requested, scope)) {
+  if (
+    requested !== undefined &&
+    requested !== 'all' &&
+    requested !== 'all branches' &&
+    requested !== 'both branches' &&
+    requested !== '' &&
+    !matchesScope(requested, scope)
+  ) {
     res.status(403).json({
       success: false,
       error: `You do not have access to that branch. Your assigned branch is ${scope.name}.`,

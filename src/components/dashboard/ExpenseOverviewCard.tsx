@@ -34,8 +34,12 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
 
   const [categories, setCategories] = useState<ExpenseCategoryData[]>([]);
   const [totalExpense, setTotalExpense] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = () => {
+    setLoading(true);
+    setError(null);
     let period: string = 'all';
     if (selectedRange === 'last_7' || selectedRange === '7D') period = 'last_7_days';
     else if (selectedRange === 'last_30' || selectedRange === '30D') period = 'last_30_days';
@@ -63,11 +67,14 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
         } else {
           setCategories([]);
         }
+        setError(null);
       })
       .catch((err) => {
         console.error('Failed to load expense category overview:', err);
-        setCategories([]);
-        setTotalExpense(0);
+        setError(err.message || 'Failed to load expense breakdown');
+      })
+      .finally(() => {
+        setLoading(false);
       });
   };
 
@@ -103,7 +110,26 @@ export const ExpenseOverviewCard: React.FC<ExpenseOverviewCardProps> = ({
 
       {/* Pie Chart & Center Metric */}
       <div className="relative flex-1 flex items-center justify-center min-h-[190px]">
-        {categories.length === 0 ? (
+        {error ? (
+          <div className="flex flex-col items-center justify-center text-center p-6 bg-amber-50/60 border border-amber-200/70 rounded-xl max-w-xs">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-1.5">
+              <i className="fa-solid fa-triangle-exclamation text-xs"></i>
+            </div>
+            <p className="text-xs font-semibold text-gray-800 mb-0.5">{error}</p>
+            <p className="text-[11px] text-gray-500 mb-2.5">Branch expenses could not be loaded.</p>
+            <button
+              onClick={loadData}
+              className="px-3 py-1 bg-white border border-amber-300 rounded-lg text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        ) : loading && categories.length === 0 ? (
+          <div className="flex flex-col items-center justify-center text-center p-6">
+            <i className="fa-solid fa-circle-notch fa-spin text-blue-600 text-lg mb-2"></i>
+            <p className="text-xs text-gray-500">Loading expense breakdown...</p>
+          </div>
+        ) : categories.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center p-6">
             <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 mb-2">
               <i className="fa-solid fa-receipt text-sm"></i>

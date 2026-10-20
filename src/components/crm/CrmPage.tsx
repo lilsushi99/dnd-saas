@@ -36,6 +36,7 @@ interface CrmPageProps {
   }) => Promise<any>;
   onExportCSV: () => void;
   onExportExcel: () => void;
+  onRetry?: () => void;
 }
 
 export const CrmPage: React.FC<CrmPageProps> = ({
@@ -43,6 +44,7 @@ export const CrmPage: React.FC<CrmPageProps> = ({
   summary,
   loading,
   error,
+  onRetry,
   search,
   onSearchChange,
   branch,
@@ -439,9 +441,19 @@ export const CrmPage: React.FC<CrmPageProps> = ({
             Loading customer records...
           </div>
         ) : error ? (
-          <div className="p-8 text-center text-xs text-rose-600 bg-rose-50 border-b border-rose-100">
-            <i className="fa-solid fa-circle-exclamation mr-1.5"></i>
-            {error}
+          <div className="p-8 text-center text-xs text-rose-600 bg-rose-50 border-b border-rose-100 flex flex-col items-center justify-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <i className="fa-solid fa-circle-exclamation"></i>
+              <span>{error}</span>
+            </div>
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                className="mt-1 px-3 py-1 bg-white border border-rose-300 rounded-lg text-xs font-semibold text-rose-800 hover:bg-rose-100 transition-colors cursor-pointer"
+              >
+                Retry
+              </button>
+            )}
           </div>
         ) : customers.length === 0 ? (
           <div className="p-12 text-center text-xs text-gray-400">

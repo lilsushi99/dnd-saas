@@ -187,7 +187,22 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6 font-sans">
+    <div className="mb-6 font-sans">
+      {error && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-800">
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-triangle-exclamation text-amber-600"></i>
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={loadData}
+            className="px-2.5 py-1 bg-white border border-amber-300 rounded-lg text-amber-800 font-medium hover:bg-amber-100 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 ${loading ? 'opacity-75 transition-opacity' : ''}`}>
       {metrics.map((card) => (
         <div
           key={card.id}
@@ -242,6 +257,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 };

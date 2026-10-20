@@ -1,69 +1,59 @@
 import { AuthService } from './authService';
 
 export const AUTH_EXPIRED_EVENT = 'nexus:auth-expired';
+export const SESSION_TIMEOUT_EVENT = 'nexus:session-timeout';
 
 interface ExtendedRequestInit extends RequestInit {
   _isRetry?: boolean;
+}
+
+let lastUserActivity = typeof window !== 'undefined' ? Date.now() : 0;
+
+// Track active user activity to avoid wasteful background polling while sleeping
+if (typeof window !== 'undefined') {
+  const markActive = () => {
+    lastUserActivity = Date.now();
+  };
+  window.addEventListener('mousemove', markActive, { passive: true });
+  window.addEventListener('keydown', markActive, { passive: true });
+  window.addEventListener('click', markActive, { passive: true });
+  window.addEventListener('scroll', markActive, { passive: true });
+  window.addEventListener('touchstart', markActive, { passive: true });
 }
 
 let isRenewing = false;
 let renewalPromise: Promise<boolean> | null = null;
 
 /**
- * Attempts a transparent session renewal for both the AI Studio container
- * auth bridge cookie and the backend JWT session token.
+ * Attempts transparent session renewal for the backend JWT session token.
  */
 export async function attemptSessionRenewal(): Promise<boolean> {
   if (renewalPromise) return renewalPromise;
 
   renewalPromise = (async () => {
     try {
-      // 1. In browser environments, briefly trigger a background iframe request to refresh the AI Studio container cookie
-      if (typeof document !== 'undefined' && typeof window !== 'undefined') {
-        try {
-          const iframe = document.createElement('iframe');
-          iframe.style.display = 'none';
-          iframe.setAttribute('aria-hidden', 'true');
-          iframe.src = '/?__auth_renew=' + Date.now();
-          document.body.appendChild(iframe);
-          await new Promise<void>((resolve) => {
-            const timer = setTimeout(() => {
-              try { iframe.remove(); } catch {}
-              resolve();
-            }, 3000);
-            iframe.onload = () => {
-              clearTimeout(timer);
-              setTimeout(() => {
-                try { iframe.remove(); } catch {}
-                resolve();
-              }, 400);
-            };
-            iframe.onerror = () => {
-              clearTimeout(timer);
-              try { iframe.remove(); } catch {}
-              resolve();
-            };
-          });
-        } catch {
-          // If iframe is blocked, continue to JWT refresh
-        }
+      const token = AuthService.getToken();
+      if (!token) return false;
+
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        return false;
       }
 
-      // 2. Refresh JWT session token against the backend
-      const token = AuthService.getToken();
-      if (token) {
-        const res = await fetch('/api/auth/refresh', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const json = await res.json().catch(() => null);
-        if (res.ok && json && json.success && json.token) {
-          AuthService.setToken(json.token);
-          return true;
-        }
+      const json = await res.json().catch(() => null);
+      if (json && json.success && json.token) {
+        AuthService.setToken(json.token);
+        return true;
       }
       return false;
     } catch {
@@ -76,14 +66,20 @@ export async function attemptSessionRenewal(): Promise<boolean> {
   return renewalPromise;
 }
 
-// Set up periodic session heartbeat every 2 minutes (120s) to keep AI Studio NGINX
-// auth cache (which has a 300s TTL) and backend JWT tokens fresh indefinitely during active use.
+/**
+ * Proactive background heartbeat: keeps the backend JWT and AI Studio container auth
+ * warm every 90 seconds while the user is actively using the application.
+ */
 if (typeof window !== 'undefined') {
   let lastHeartbeat = Date.now();
 
   const runHeartbeat = async () => {
     const token = AuthService.getToken();
     if (!token) return;
+
+    // Only ping if user has interacted within the last 15 minutes
+    if (Date.now() - lastUserActivity > 15 * 60 * 1000) return;
+
     try {
       await attemptSessionRenewal();
       lastHeartbeat = Date.now();
@@ -92,39 +88,51 @@ if (typeof window !== 'undefined') {
     }
   };
 
-  // Heartbeat interval (every 2 minutes)
-  setInterval(runHeartbeat, 120000);
+  // Heartbeat interval (every 60s to ensure session stays actively warm)
+  setInterval(runHeartbeat, 60000);
 
-  // Trigger heartbeat when window regains focus or user becomes active after being away
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && Date.now() - lastHeartbeat > 90000) {
+  // When tab regains focus after being hidden, verify session freshness
+  const onFocusOrVisibility = () => {
+    if (document.visibilityState === 'visible' && Date.now() - lastHeartbeat > 45000) {
       runHeartbeat();
     }
-  });
+  };
 
-  window.addEventListener('focus', () => {
-    if (Date.now() - lastHeartbeat > 90000) {
-      runHeartbeat();
-    }
-  });
+  window.addEventListener('visibilitychange', onFocusOrVisibility);
+  window.addEventListener('focus', onFocusOrVisibility);
 }
 
 /**
  * Shared authenticated JSON request with automatic JWT token attachment,
- * server error extraction, container session renewal, and transparent retry on transient 403s.
+ * container cookie credential forwarding, infrastructure timeout detection,
+ * and transparent session recovery.
  */
 export async function apiRequest<T = any>(url: string, options: ExtendedRequestInit = {}): Promise<T> {
   const token = AuthService.getToken();
   const headers = new Headers(options.headers || {});
   if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
   if (options.body && !headers.has('Content-Type') && typeof options.body === 'string') {
     headers.set('Content-Type', 'application/json');
   }
 
+  // Always include credentials so container cookies (__SECURE-aistudio_auth_token) are preserved
+  const fetchOptions: ExtendedRequestInit = {
+    ...options,
+    credentials: options.credentials || 'include',
+    headers,
+  };
+
   let res: Response;
   try {
-    res = await fetch(url, { ...options, headers });
+    res = await fetch(url, fetchOptions);
   } catch (netErr: any) {
+    if (typeof window !== 'undefined' && !options._isRetry && url !== '/api/auth/refresh') {
+      const renewed = await attemptSessionRenewal();
+      if (renewed) {
+        return apiRequest<T>(url, { ...options, _isRetry: true });
+      }
+    }
     throw new Error(netErr.message || 'Network request failed. Please check your connection.');
   }
 
@@ -137,41 +145,63 @@ export async function apiRequest<T = any>(url: string, options: ExtendedRequestI
       data = null;
     }
   } else {
-    // Non-JSON response (e.g. HTML error page from NGINX or proxy)
+    // Non-JSON response (e.g. HTML error page from NGINX or auth bridge proxy)
     try {
       const text = await res.text();
-      // Check if server sent a string error
       data = { rawText: text };
     } catch {
       data = null;
     }
   }
 
-  // Handle 401 Unauthorized (expired or invalid JWT token)
-  if (res.status === 401 && token) {
-    AuthService.removeToken();
-    window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT, { detail: { reason: 'unauthorized' } }));
-    throw new Error((data && (data.error || data.message)) || 'Your session has expired. Please log in again.');
-  }
-
-  // Handle 403 Forbidden
-  if (res.status === 403) {
-    const isInfrastructureSessionExpiry =
-      !data ||
-      !data.message ||
-      contentType.includes('text/html') ||
-      (typeof data.rawText === 'string' && data.rawText.includes('<html'));
-
-    // If it's an infrastructure/container session expiry and we haven't retried yet, attempt renewal
-    if (isInfrastructureSessionExpiry && !options._isRetry) {
+  // Handle 401 Unauthorized (expired or invalid backend JWT token)
+  if (res.status === 401) {
+    if (!options._isRetry && url !== '/api/auth/refresh') {
       const renewed = await attemptSessionRenewal();
       if (renewed) {
         return apiRequest<T>(url, { ...options, _isRetry: true });
       }
     }
+    if (token) {
+      AuthService.removeToken();
+      window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT, { detail: { reason: 'unauthorized' } }));
+    }
+    const message = (data && (data.error || data.message)) || 'Your session has expired. Please log in again.';
+    const error: any = new Error(message);
+    error.status = 401;
+    throw error;
+  }
 
-    // Genuine backend permission or branch access error
-    const backendMessage = (data && (data.message || data.error)) || 'Access denied: You do not have permission to view or modify this resource.';
+  // Handle 403 Forbidden
+  if (res.status === 403) {
+    const isHtmlError =
+      contentType.includes('text/html') ||
+      (typeof data?.rawText === 'string' && (data.rawText.includes('<html') || data.rawText.includes('<!DOCTYPE') || data.rawText.includes('Forbidden')));
+
+    const isInfrastructureSessionExpiry = isHtmlError || (!data?.message && !data?.error);
+
+    // If it's an infrastructure/container session timeout (e.g. Google Cloud Run auth bridge redirect):
+    if (isInfrastructureSessionExpiry) {
+      if (typeof window !== 'undefined') {
+        const now = Date.now();
+        const lastRecoveryStr = sessionStorage.getItem('nexus_last_recovery_time');
+        const lastRecovery = lastRecoveryStr ? parseInt(lastRecoveryStr, 10) : 0;
+
+        if (now - lastRecovery > 15000) {
+          sessionStorage.setItem('nexus_last_recovery_time', String(now));
+          window.location.reload();
+        } else {
+          window.dispatchEvent(new CustomEvent(SESSION_TIMEOUT_EVENT, { detail: { reason: 'infrastructure' } }));
+        }
+        // Return a pending promise to prevent throwing errors to components while reload executes
+        return new Promise<T>(() => {});
+      }
+    }
+
+    // Genuine backend permission or branch access error (structured JSON from API middleware)
+    const backendMessage =
+      (data && (data.message || data.error)) ||
+      'Access denied: You do not have permission to view or modify this resource.';
     const error: any = new Error(backendMessage);
     error.status = 403;
     error.isForbidden = true;

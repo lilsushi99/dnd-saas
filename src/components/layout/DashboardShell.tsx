@@ -191,6 +191,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                 onCreateCustomer={customerState.createCustomer}
                 onExportCSV={() => customerState.exportCustomersData('csv')}
                 onExportExcel={() => customerState.exportCustomersData('excel')}
+                onRetry={customerState.refetchCustomers}
               />
             ) : isCommunications ? (
               <CommunicationsPage />

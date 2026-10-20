@@ -136,15 +136,10 @@ export class OperationsApiService {
     read: boolean;
     createdAt: string;
   }[]> {
-    try {
-      const data = await this.request<{ success: boolean; notifications: any[] }>(
-        '/api/operations/notifications'
-      );
-      return data.notifications || [];
-    } catch (e) {
-      console.warn('Failed to fetch notifications:', e);
-      return [];
-    }
+    const data = await this.request<{ success: boolean; notifications: any[] }>(
+      '/api/operations/notifications'
+    );
+    return data.notifications || [];
   }
 
   public static async markAllNotificationsRead(): Promise<boolean> {

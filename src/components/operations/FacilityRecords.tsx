@@ -23,6 +23,7 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
     endDate,
     setEndDate,
     exportData,
+    refetch,
   } = useOperations(branchFilter);
 
   const [dbBranches, setDbBranches] = useState<Branch[]>([]);
@@ -232,8 +233,17 @@ export const FacilityRecords: React.FC<FacilityRecordsProps> = ({ branchFilter =
           <span>Computing facility analytics from Daily Logger...</span>
         </div>
       ) : error ? (
-        <div className="p-4 bg-red-50 text-red-700 rounded-xl text-xs font-semibold">
-          {error}
+        <div className="p-4 bg-red-50 text-red-700 rounded-xl text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <i className="fa-solid fa-triangle-exclamation text-red-600"></i>
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="px-3 py-1 bg-white border border-red-300 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <FacilityAnalyticsTable records={facilityRecords} />

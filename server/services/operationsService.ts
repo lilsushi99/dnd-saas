@@ -55,11 +55,11 @@ export class OperationsService {
     try {
       const { executeQuery } = await import('../database/db');
       await executeQuery(
-        `INSERT INTO system_notifications (title, message, type, is_read, created_at) VALUES (?, ?, 'success', 0, NOW())`,
+        `INSERT INTO system_notifications (title, message, type, is_read, created_at) VALUES (?, ?, 'success', 0, CURRENT_TIMESTAMP)`,
         ['New Booking Created', `Booking ${created.id} created for ${created.clientName || 'Client'}.`]
       );
-    } catch {
-      // Non-fatal
+    } catch (e: any) {
+      console.warn('Could not record booking notification:', e?.message);
     }
     return created;
   }

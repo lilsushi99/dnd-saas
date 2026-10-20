@@ -328,9 +328,17 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ branchFilter = 'all'
             <p className="text-xs font-semibold text-gray-500 mt-2">Loading expense records...</p>
           </div>
         ) : error ? (
-          <div className="p-8 text-center text-red-600 text-xs font-semibold">
-            <i className="fa-solid fa-triangle-exclamation text-lg mb-1 block"></i>
-            {error}
+          <div className="p-8 text-center text-red-600 text-xs font-semibold flex flex-col items-center justify-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <i className="fa-solid fa-triangle-exclamation text-base"></i>
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => refresh()}
+              className="mt-1 px-3 py-1 bg-white border border-red-300 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
           </div>
         ) : expenses.length === 0 ? (
           <div className="p-12 text-center">

@@ -26,6 +26,7 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({ branchFilter = 'all' }
     addBooking,
     editBooking,
     exportData,
+    refetch,
   } = useOperations(branchFilter);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -356,8 +357,17 @@ export const DailyLogger: React.FC<DailyLoggerProps> = ({ branchFilter = 'all' }
             <span>Loading Daily Logger records...</span>
           </div>
         ) : error ? (
-          <div className="p-4 bg-red-50 text-red-700 rounded-xl text-xs font-medium">
-            {error}
+          <div className="p-4 bg-red-50 text-red-700 rounded-xl text-xs font-medium flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <i className="fa-solid fa-triangle-exclamation text-red-600"></i>
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => refetch()}
+              className="px-3 py-1 bg-white border border-red-300 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
           </div>
         ) : bookings.length === 0 ? (
           <div className="py-12 text-center text-gray-500 text-xs font-medium">

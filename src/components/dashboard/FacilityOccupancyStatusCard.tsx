@@ -25,6 +25,7 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
   const [facilities, setFacilities] = useState<FacilityOccupancyItem[]>([]);
   const [dbBranches, setDbBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedBranch =
     filters?.branch && filters.branch !== 'all'
@@ -35,6 +36,7 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
 
   const loadOccupancyData = () => {
     setLoading(true);
+    setError(null);
     let period: string = 'all';
     const selectedRange = filters?.dateRange || 'this_month';
     if (selectedRange === 'last_7' || selectedRange === '7D') period = 'last_7_days';
@@ -61,10 +63,11 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
         } else {
           setFacilities([]);
         }
+        setError(null);
       })
       .catch((err) => {
         console.error('Error fetching occupancy data:', err);
-        setFacilities([]);
+        setError(err.message || 'Failed to load occupancy data');
       })
       .finally(() => setLoading(false));
   };
@@ -174,7 +177,26 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
 
       {/* Facility Availability Cards */}
       <div className="space-y-2.5 flex-1 overflow-y-auto pr-1">
-        {filteredFacilities.length === 0 ? (
+        {error ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-amber-50/60 border border-amber-200/70 rounded-xl">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-1.5">
+              <i className="fa-solid fa-triangle-exclamation text-xs"></i>
+            </div>
+            <p className="text-xs font-semibold text-gray-800 mb-0.5">{error}</p>
+            <p className="text-[11px] text-gray-500 mb-2.5">Occupancy data could not be loaded for this branch selection.</p>
+            <button
+              onClick={loadOccupancy}
+              className="px-3 py-1 bg-white border border-amber-300 rounded-lg text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        ) : loading && facilities.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
+            <i className="fa-solid fa-circle-notch fa-spin text-blue-600 text-base mb-1"></i>
+            <p className="text-xs font-normal">Loading facility occupancy...</p>
+          </div>
+        ) : filteredFacilities.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400">
             <i className="fa-solid fa-building text-base mb-1"></i>
             <p className="text-xs font-normal">No facilities registered for this branch</p>
