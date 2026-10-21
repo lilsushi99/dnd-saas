@@ -20,6 +20,7 @@ export const ExpenseCategoriesPage: React.FC = () => {
   const { showToast } = useToast();
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Inactive'>('all');
 
@@ -34,10 +35,13 @@ export const ExpenseCategoriesPage: React.FC = () => {
 
   const loadCategories = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await ExpenseApiService.fetchCategories();
       setCategories(data);
+      setError(null);
     } catch (err: any) {
+      setError(err.message || 'Failed to fetch expense categories');
       showToast('Error', err.message || 'Failed to fetch expense categories', 'error');
     } finally {
       setLoading(false);
@@ -274,6 +278,23 @@ export const ExpenseCategoriesPage: React.FC = () => {
                   <td colSpan={6} className="py-8 text-center text-gray-500">
                     <i className="fa-solid fa-circle-notch fa-spin mr-2 text-blue-600 text-base"></i>
                     Loading expense categories...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-red-600 bg-red-50/50">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <i className="fa-solid fa-triangle-exclamation"></i>
+                        <span>{error}</span>
+                      </div>
+                      <button
+                        onClick={loadCategories}
+                        className="px-3 py-1 bg-white border border-red-300 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100 transition-colors cursor-pointer"
+                      >
+                        Retry
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : filteredCategories.length === 0 ? (

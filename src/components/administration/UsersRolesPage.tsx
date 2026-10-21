@@ -21,7 +21,7 @@ const statusFilterOptions: SelectOption[] = [
 ];
 
 export const UsersRolesPage: React.FC = () => {
-  const { users, rolesPermissions, loading, error, createUser, updateUser, toggleUserStatus, updateRolePermissions } = useUsersRoles();
+  const { users, rolesPermissions, loading, error, refreshUsersRoles, createUser, updateUser, toggleUserStatus, updateRolePermissions } = useUsersRoles();
   const { branches } = useBranches();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -178,9 +178,17 @@ export const UsersRolesPage: React.FC = () => {
             Loading system user accounts...
           </div>
         ) : error ? (
-          <div className="p-12 text-center text-red-500 text-xs">
-            <i className="fa-solid fa-triangle-exclamation text-lg mb-2 block"></i>
-            {error}
+          <div className="p-12 text-center text-red-500 text-xs flex flex-col items-center justify-center gap-2">
+            <div className="flex items-center gap-2">
+              <i className="fa-solid fa-triangle-exclamation text-lg"></i>
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => refreshUsersRoles()}
+              className="mt-1 px-3 py-1 bg-white border border-red-300 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="p-12 text-center text-gray-400 text-xs">

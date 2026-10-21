@@ -185,7 +185,7 @@ export const FacilityOccupancyStatusCard: React.FC<FacilityOccupancyStatusCardPr
             <p className="text-xs font-semibold text-gray-800 mb-0.5">{error}</p>
             <p className="text-[11px] text-gray-500 mb-2.5">Occupancy data could not be loaded for this branch selection.</p>
             <button
-              onClick={loadOccupancy}
+              onClick={loadOccupancyData}
               className="px-3 py-1 bg-white border border-amber-300 rounded-lg text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
             >
               Retry
